@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Hospital, ArrowRight, Menu } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppStore, type Message } from '../store/useAppStore';
+import { chatApi } from '../lib/api';
 
 interface ChatInterfaceProps {
   isSidebarOpen: boolean;
@@ -9,7 +10,7 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ isSidebarOpen, setIsSidebarOpen }: ChatInterfaceProps) {
-  const { currentSessionId, sessions, addMessage, updateSessionTitle } = useAppStore();
+  const { currentSessionId, sessions, addMessage, updateSessionTitle, customerId } = useAppStore();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,7 +24,7 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen }: ChatInterface
     }
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || !currentSessionId) return;
 
     const userMessage: Message = {
@@ -39,44 +40,49 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen }: ChatInterface
       updateSessionTitle(currentSessionId, input.slice(0, 30) + (input.length > 30 ? '...' : ''));
     }
 
+    const currentInput = input;
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      processResponse(input);
-    }, 1500);
-  };
+    try {
+      const response = await chatApi.sendMessage(currentInput, customerId || undefined);
+      if (response.success) {
+        const { assistantMessage, businessData } = response.data;
+        
+        let hospitalsData = [];
+        if (businessData.recommendedHospital || businessData.hospitals.length > 0) {
+          const hospitals = businessData.hospitals.length > 0 ? businessData.hospitals : [businessData.recommendedHospital];
+          hospitalsData = hospitals.map((h: any) => ({
+            name: h.nombre || 'Hospital',
+            copay: businessData.coverage.estimatedCopay || 0,
+            distance: h.ciudad || 'N/A',
+            inNetwork: true,
+            rating: h.score || 4.5
+          }));
+        }
 
-  const processResponse = (text: string) => {
-    if (!currentSessionId) return;
-    setIsTyping(false);
-    const lowText = text.toLowerCase();
-    
-    let response: Message;
-
-    if (lowText.includes('estómago') || lowText.includes('dolor abdominal') || lowText.includes('gastritis')) {
-      response = {
+        const botMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: assistantMessage,
+          timestamp: Date.now(),
+          type: hospitalsData.length > 0 ? 'hospital_comparison' : 'text',
+          data: hospitalsData.length > 0 ? hospitalsData : undefined
+        };
+        addMessage(currentSessionId, botMessage);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Entiendo. Por tus síntomas de dolor abdominal, te sugiero consultar con la especialidad de Gastroenterología. He analizado tu plan de seguro "Salud Total" y aquí tienes las mejores opciones en tu red:',
-        type: 'hospital_comparison',
-        timestamp: Date.now(),
-        data: [
-          { name: 'Clínica Alemana', copay: 15000, distance: '2.5 km', inNetwork: true, rating: 4.8 },
-          { name: 'Hospital Clínico UC', copay: 12000, distance: '4.1 km', inNetwork: true, rating: 4.6 },
-          { name: 'Clínica Las Condes', copay: 45000, distance: '6.8 km', inNetwork: false, rating: 4.9 },
-        ]
-      };
-    } else {
-      response = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Gracias por la información. Para darte una recomendación exacta sobre la especialidad y los costos de copago, ¿podrías decirme si el dolor es agudo o ha persistido por varios días?',
+        content: 'Lo siento, hubo un error al procesar tu solicitud. Por favor intenta de nuevo.',
         timestamp: Date.now(),
       };
+      addMessage(currentSessionId, errorMessage);
+    } finally {
+      setIsTyping(false);
     }
-
-    addMessage(currentSessionId, response);
   };
 
   if (!currentSessionId || !currentSession) {

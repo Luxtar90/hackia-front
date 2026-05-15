@@ -1,5 +1,8 @@
-import { User, Bell, Lock, Eye, Moon, Sun, Globe, Menu } from 'lucide-react';
+import { useState } from 'react';
+import { User, Bell, Lock, Eye, Moon, Sun, Globe, Menu, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { authApi } from '../lib/api';
+import { Modal } from './Modal';
 
 interface SettingsViewProps {
   isSidebarOpen: boolean;
@@ -7,14 +10,56 @@ interface SettingsViewProps {
 }
 
 export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewProps) {
-  const { isDarkMode, toggleDarkMode, user } = useAppStore();
+  const { isDarkMode, toggleDarkMode, user, updateUser } = useAppStore();
+  
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [newName, setNewName] = useState(user.name);
+  const [newEmail, setNewEmail] = useState(user.email);
+  
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  
+  const [changingLanguage, setChangingLanguage] = useState(false);
+  const [language, setLanguage] = useState('Español');
+
+  const handleUpdateProfile = async () => {
+    try {
+      await authApi.updateProfile({ name: newName, email: newEmail });
+      updateUser({ name: newName, email: newEmail });
+      setEditingProfile(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    try {
+      await authApi.updatePassword(newPassword);
+      setChangingPassword(false);
+      setNewPassword('');
+    } catch (error) {
+      console.error('Error changing password:', error);
+    }
+  };
 
   const sections = [
     {
       title: 'Perfil',
       items: [
-        { icon: User, label: 'Información Personal', value: user.name, type: 'link' },
-        { icon: Globe, label: 'Idioma', value: 'Español (ES)', type: 'link' },
+        { 
+          icon: User, 
+          label: 'Información Personal', 
+          value: user.name, 
+          type: 'link', 
+          onClick: () => setEditingProfile(true) 
+        },
+        { 
+          icon: Globe, 
+          label: 'Idioma', 
+          value: language === 'Español' ? 'Español (ES)' : 'Inglés (EN)', 
+          type: 'link', 
+          onClick: () => setChangingLanguage(true) 
+        },
       ]
     },
     {
@@ -33,7 +78,13 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
     {
       title: 'Seguridad',
       items: [
-        { icon: Lock, label: 'Cambiar Contraseña', value: '********', type: 'link' },
+        { 
+          icon: Lock, 
+          label: 'Cambiar Contraseña', 
+          value: '********', 
+          type: 'link', 
+          onClick: () => setChangingPassword(true) 
+        },
         { icon: Eye, label: 'Privacidad de Datos', value: 'Protegido', type: 'link' },
       ]
     }
@@ -80,13 +131,16 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
                     {item.type === 'toggle' ? (
                       <button 
                         onClick={item.action}
-                        className={`w-11 h-6 rounded-full transition-colors relative ${isDarkMode ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-600'}`}
+                        className={`w-11 h-6 rounded-full transition-all relative ${isDarkMode ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-600'}`}
                       >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isDarkMode ? 'left-6' : 'left-1'}`} />
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isDarkMode ? 'left-6' : 'left-1'}`} />
                       </button>
                     ) : (
-                      <button className="text-slate-300 hover:text-teal-600 transition-colors">
-                        <Globe size={16} />
+                      <button 
+                        onClick={(item as any).onClick}
+                        className="p-2 text-slate-300 hover:text-teal-600 transition-colors"
+                      >
+                        <ChevronRight size={18} />
                       </button>
                     )}
                   </div>
@@ -105,6 +159,74 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
           </div>
         </div>
       </div>
+
+      {/* Modals for settings */}
+      <Modal
+        isOpen={editingProfile}
+        onClose={() => setEditingProfile(false)}
+        onConfirm={handleUpdateProfile}
+        title="Editar Perfil"
+      >
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+            <input 
+              type="text" 
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Correo Electrónico</label>
+            <input 
+              type="email" 
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={changingPassword}
+        onClose={() => setChangingPassword(false)}
+        onConfirm={handleChangePassword}
+        title="Cambiar Contraseña"
+      >
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nueva Contraseña</label>
+            <input 
+              type="password" 
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={changingLanguage}
+        onClose={() => setChangingLanguage(false)}
+        onConfirm={() => setChangingLanguage(false)}
+        title="Seleccionar Idioma"
+      >
+        <div className="space-y-2 py-2">
+          {['Español', 'Inglés'].map((lang) => (
+            <button
+              key={lang}
+              onClick={() => setLanguage(lang)}
+              className={`w-full text-left p-4 rounded-xl text-sm font-semibold transition-all ${language === lang ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 border border-teal-100 dark:border-teal-800' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent'}`}
+            >
+              {lang} {lang === 'Español' ? '(ES)' : '(EN)'}
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

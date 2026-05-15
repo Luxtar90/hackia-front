@@ -30,6 +30,8 @@ interface AppState {
   currentSessionId: string | null;
   isDarkMode: boolean;
   isAuthenticated: boolean;
+  accessToken: string | null;
+  customerId: string | null;
   user: {
     name: string;
     plan: string;
@@ -37,34 +39,57 @@ interface AppState {
   };
   
   // Actions
+  login: (token: string, user: any) => void;
   logout: () => void;
+  updateUser: (data: Partial<AppState['user']>) => void;
   toggleDarkMode: () => void;
   setCurrentSession: (id: string) => void;
   createNewSession: () => void;
   addMessage: (sessionId: string, message: Message) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   deleteSession: (id: string) => void;
-}
+  }
 
-export const useAppStore = create<AppState>()(
+  export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       sessions: [],
       currentSessionId: null,
       isDarkMode: false,
       isAuthenticated: false,
+      accessToken: null,
+      customerId: null,
       user: {
         name: 'Juan Delgado',
         plan: 'Salud Total Platinum',
         email: 'juan.delgado@email.com',
       },
 
-      logout: () => set({ isAuthenticated: false, currentSessionId: null }),
+      login: (token, user) => {
+        localStorage.setItem('accessToken', token);
+        set({ 
+          isAuthenticated: true, 
+          accessToken: token, 
+          customerId: user.id,
+          user: { ...user, name: user.name || 'Usuario', plan: user.plan || 'Plan Estándar' }
+        });
+      },
+
+      logout: () => {
+        localStorage.removeItem('accessToken');
+        set({ isAuthenticated: false, accessToken: null, customerId: null, currentSessionId: null });
+      },
+
+      updateUser: (data) => set((state) => ({
+        user: { ...state.user, ...data }
+      })),
+
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
-      
-      setCurrentSession: (id) => set({ currentSessionId: id }),
+
       
       createNewSession: () => {
+        const state = useAppStore.getState();
+        const userName = state.user.name.split(' ')[0]; // Use first name
         const newId = Date.now().toString();
         const newSession: ChatSession = {
           id: newId,
@@ -73,7 +98,7 @@ export const useAppStore = create<AppState>()(
             {
               id: 'init-' + newId,
               role: 'assistant',
-              content: 'Hola Juan, soy tu asistente de salud. ¿Qué síntomas estás experimentando hoy?',
+              content: `Hola ${userName}, soy tu asistente de salud. ¿Qué síntomas estás experimentando hoy?`,
               timestamp: Date.now(),
             }
           ],

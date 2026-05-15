@@ -1,19 +1,49 @@
 import { useState } from 'react';
 import { Activity, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { authApi } from '../lib/api';
 
 export function AuthView() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Simulation of auth state in the local store
-  const login = () => {
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      // Set authenticated in store
-      useAppStore.setState({ isAuthenticated: true });
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      if (isLogin) {
+        const response = await authApi.login({ email, password });
+        if (response.success) {
+          useAppStore.getState().login(response.data.accessToken, {
+            ...response.data.user,
+            name: response.data.user.name || name || 'Usuario'
+          });
+        }
+      } else {
+        const response = await authApi.register({ 
+          email, 
+          password, 
+          role: 'patient',
+          name 
+        });
+        if (response.success) {
+          setSuccessMessage('¡Cuenta creada con éxito! Ahora puedes iniciar sesión.');
+          setIsLogin(true);
+          setPassword(''); // Clear password for safety
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al conectar con el servidor');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -45,9 +75,24 @@ export function AuthView() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
               {isLogin ? 'Ingresa tus credenciales para continuar' : 'Únete para gestionar tus beneficios de salud'}
             </p>
+            {isLogin && !successMessage && (
+              <p className="text-[10px] text-teal-600 font-bold mt-2 bg-teal-50 dark:bg-teal-900/20 p-2 rounded-lg">
+                Demo: juan.delgado@email.com / password123
+              </p>
+            )}
+            {successMessage && (
+              <p className="text-xs text-green-600 font-bold mt-2 bg-green-50 dark:bg-green-900/20 p-2 rounded-lg animate-in fade-in zoom-in-95">
+                {successMessage}
+              </p>
+            )}
           </div>
 
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); login(); }}>
+          <form className="space-y-4" onSubmit={handleAuth}>
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl p-3 text-red-600 dark:text-red-400 text-xs font-medium animate-in fade-in slide-in-from-top-1">
+                {error}
+              </div>
+            )}
             {!isLogin && (
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nombre Completo</label>
@@ -55,6 +100,8 @@ export function AuthView() {
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={18} />
                   <input 
                     type="text" 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Juan Delgado"
                     className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white transition-all"
                   />
@@ -68,6 +115,8 @@ export function AuthView() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={18} />
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="ejemplo@correo.com"
                   className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white transition-all"
                   required
@@ -84,6 +133,8 @@ export function AuthView() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={18} />
                 <input 
                   type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white transition-all"
                   required
