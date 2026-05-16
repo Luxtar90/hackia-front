@@ -3,10 +3,32 @@ import { persist } from 'zustand/middleware';
 
 export interface Hospital {
   name: string;
-  copay: number;
+  /** Copago estimado del plan; ausente si el centro está fuera de red (OSM u otros). */
+  copay?: number;
   distance: string;
   inNetwork: boolean;
   rating: number;
+  isBestValue?: boolean;
+  /** Recomendación prioritaria: en red + la especialidad pedida aparece en datos (backend). */
+  isRecommendedRedSpecialty?: boolean;
+  /** Ítems de cartera desde backend (Notion), para tarjetas del chat */
+  portfolio?: string[];
+  distanceKm?: number;
+  latitude?: number;
+  longitude?: number;
+  /** Si en datos (red + cartera) aparece algo compatible con la especialidad buscada */
+  specialtyAligned?: boolean;
+  /** Declarada en datos | no listada | sin datos en sistema */
+  specialtyDataStatus?: 'declared' | 'not_listed' | 'unknown';
+  /** Prioridad 1: ¿tiene la especialidad en los datos? */
+  specialtyFocus?: string;
+  /** Teléfono del centro si viene del maestro/OSM (contacto). */
+  phone?: string;
+  ciudad?: string;
+  /** Resumen muy breve de Tavily/Serper en la tarjeta (si aplica). */
+  specialtyWebHint?: string;
+  /** Texto breve de cobertura / siguiente paso junto a la especialidad buscada. */
+  specialtyCoverageNote?: string;
 }
 
 export interface Message {
@@ -16,6 +38,16 @@ export interface Message {
   type?: 'text' | 'hospital_comparison';
   data?: Hospital[];
   timestamp: number;
+  /** Aviso legal del backend cuando hubo enriquecimiento web (fragmentos de búsqueda). */
+  webSearchDisclaimer?: string;
+  /** Proveedor(es) de búsqueda web cuando hubo enriquecimiento del hospital recomendado. */
+  webSearchProvider?: 'tavily' | 'serper' | 'tavily_serper';
+  /** Cómo se ordenó la lista de hospitales en ese turno (para etiquetas en UI). */
+  hospitalsSortedBy?: 'distance' | 'copay';
+  /** Contexto de especialidad (red vs síntomas) para mostrar sobre las tarjetas */
+  specialtyBanner?: string;
+  /** Total de centros en la lista del backend (el chat muestra solo algunos). */
+  hospitalsTotalCount?: number;
 }
 
 export interface ChatSession {
@@ -43,6 +75,8 @@ export interface SelectedHospital {
   copay?: number;
   specialty?: string;
   reason?: string;
+  /** Especialidades RED + servicios maestro (solo si el chat mandó businessData). */
+  portfolio?: string[];
 }
 
 interface AppState {
@@ -50,6 +84,8 @@ interface AppState {
   currentSessionId: string | null;
   selectedHospital: SelectedHospital | null;
   mapCenter: MapCenter | null;
+  /** Ubicación del usuario (GPS); no usar para centrar el mapa del hospital salvo que se quiera vista “mi ubicación”. */
+  userLocation: MapCenter | null;
   isDarkMode: boolean;
   isAuthenticated: boolean;
   accessToken: string | null;
@@ -73,15 +109,17 @@ interface AppState {
   setConversationId: (sessionId: string, conversationId: string) => void;
   setSelectedHospital: (hospital: SelectedHospital | null) => void;
   setMapCenter: (center: MapCenter | null) => void;
-  }
+  setUserLocation: (center: MapCenter | null) => void;
+}
 
-  export const useAppStore = create<AppState>()(
+export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       sessions: [],
       currentSessionId: null,
       selectedHospital: null,
       mapCenter: null,
+      userLocation: null,
       isDarkMode: false,
       isAuthenticated: false,
       accessToken: null,
@@ -111,6 +149,7 @@ interface AppState {
           currentSessionId: null,
           selectedHospital: null,
           mapCenter: null,
+          userLocation: null,
         });
       },
 
@@ -173,9 +212,24 @@ interface AppState {
       setSelectedHospital: (hospital) => set({ selectedHospital: hospital }),
 
       setMapCenter: (center) => set({ mapCenter: center }),
+
+      setUserLocation: (center) => set({ userLocation: center }),
     }),
     {
       name: 'estimador-storage',
+      /** Solo datos serializables. `userLocation` queda en localStorage hasta logout o borrar datos del sitio. */
+      partialize: (state) => ({
+        sessions: state.sessions,
+        currentSessionId: state.currentSessionId,
+        selectedHospital: state.selectedHospital,
+        mapCenter: state.mapCenter,
+        userLocation: state.userLocation,
+        isDarkMode: state.isDarkMode,
+        isAuthenticated: state.isAuthenticated,
+        accessToken: state.accessToken,
+        customerId: state.customerId,
+        user: state.user,
+      }),
     }
   )
 );

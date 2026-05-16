@@ -20,12 +20,104 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
+/** Evento de línea de tiempo mientras el backend procesa el chat (NDJSON). */
+export interface ChatProgressEvent {
+  phase: string;
+  label: string;
+  detail?: string;
+}
+
 export const chatApi = {
-  sendMessage: (message: string, customerId?: string, conversationId?: string) =>
-    apiRequest('/chat/message', {
+  sendMessage: async (
+    message: string,
+    customerId?: string,
+    conversationId?: string,
+    customerContext?: { latitude?: number; longitude?: number; city?: string },
+    onProgress?: (event: ChatProgressEvent) => void,
+  ) => {
+    const token = localStorage.getItem('accessToken');
+    const body = {
+      message,
+      customerId,
+      conversationId,
+      stream: true as const,
+      ...(customerContext && Object.keys(customerContext).length > 0 ? { customerContext } : {}),
+    };
+
+    const response = await fetch(`${API_BASE_URL}/chat/message`, {
       method: 'POST',
-      body: JSON.stringify({ message, customerId, conversationId }),
-    }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    const contentType = response.headers.get('content-type') ?? '';
+
+    // Backend antiguo sin NDJSON: una sola respuesta JSON.
+    if (!contentType.includes('ndjson')) {
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong');
+      }
+      return data;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No se pudo leer la respuesta del servidor');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result: { success: boolean; data: unknown } | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIdx: number;
+      while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIdx).trim();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (!line) continue;
+        let obj: {
+          type?: string;
+          phase?: string;
+          label?: string;
+          detail?: string;
+          message?: string;
+          success?: boolean;
+          data?: unknown;
+        };
+        try {
+          obj = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (obj.type === 'progress' && obj.phase && obj.label) {
+          onProgress?.({ phase: obj.phase, label: obj.label, detail: obj.detail });
+        }
+        if (obj.type === 'error') {
+          throw new Error(obj.message || 'Error al procesar el mensaje');
+        }
+        if (obj.type === 'complete' && typeof obj.success === 'boolean' && obj.data !== undefined) {
+          result = { success: obj.success, data: obj.data };
+        }
+      }
+    }
+
+    if (!response.ok && !result) {
+      throw new Error('Error en la respuesta del servidor');
+    }
+
+    if (!result) {
+      throw new Error('Respuesta incompleta del servidor');
+    }
+
+    return result;
+  },
   getHistory: (customerId: string) =>
     apiRequest(`/chat/history/${customerId}`),
 };
@@ -54,11 +146,22 @@ export const authApi = {
 };
 
 export const hospitalApi = {
-  getNearbyHospitals: (latitude?: number, longitude?: number, radius: number = 50) => {
+  /**
+   * @param options.catalog true = solo maestro Notion (sin mezcla OSM). Con GPS y catalog false: Notion en radio + otros centros (OpenStreetMap), marcando cobertura.
+   */
+  getNearbyHospitals: (
+    latitude?: number,
+    longitude?: number,
+    radius: number = 50,
+    options?: { catalog?: boolean; numeroPoliza?: string | null },
+  ) => {
     const params = new URLSearchParams();
     if (latitude !== undefined) params.append('latitude', latitude.toString());
     if (longitude !== undefined) params.append('longitude', longitude.toString());
     params.append('radius', radius.toString());
+    if (options?.catalog) params.append('catalog', 'true');
+    const poliza = options?.numeroPoliza?.trim();
+    if (poliza) params.append('numeroPoliza', poliza);
     return apiRequest(`/hospital/nearby?${params.toString()}`);
   },
 };
