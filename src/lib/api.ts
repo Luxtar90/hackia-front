@@ -21,10 +21,10 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 }
 
 export const chatApi = {
-  sendMessage: (message: string, customerId?: string) =>
+  sendMessage: (message: string, customerId?: string, conversationId?: string) =>
     apiRequest('/chat/message', {
       method: 'POST',
-      body: JSON.stringify({ message, customerId }),
+      body: JSON.stringify({ message, customerId, conversationId }),
     }),
   getHistory: (customerId: string) =>
     apiRequest(`/chat/history/${customerId}`),
@@ -50,5 +50,25 @@ export const authApi = {
     apiRequest('/auth/password', {
       method: 'PUT',
       body: JSON.stringify({ password }),
+    }),
+};
+
+export const hospitalApi = {
+  getNearbyHospitals: (latitude?: number, longitude?: number, radius: number = 50) => {
+    const params = new URLSearchParams();
+    if (latitude !== undefined) params.append('latitude', latitude.toString());
+    if (longitude !== undefined) params.append('longitude', longitude.toString());
+    params.append('radius', radius.toString());
+    return apiRequest(`/hospital/nearby?${params.toString()}`);
+  },
+};
+
+export const customerApi = {
+  getCoverage: (customerId: string) =>
+    apiRequest(`/customer/${customerId}/coverage`),
+  createCustomer: () =>
+    apiRequest('/customer/create', {
+      method: 'POST',
+      body: JSON.stringify({}),
     }),
 };

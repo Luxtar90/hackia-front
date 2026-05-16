@@ -1,17 +1,118 @@
-import { Shield, CreditCard, CheckCircle, Info, Download, Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Shield, CreditCard, CheckCircle, Info, Download, Menu, Loader } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
+import { customerApi } from '../lib/api';
 
 interface InsuranceViewProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
 }
 
+interface CoverageDetail {
+  idCobertura: string;
+  especialidad: string;
+  copagoFijo?: number;
+  coaseguroOverride?: number;
+  cubierto: boolean;
+}
+
+interface CoverageData {
+  customerId: string;
+  numeroPoliza: string;
+  nombreCompleto?: string;
+  plan: {
+    nombrePlan: string;
+    aseguradora: string;
+    tipoPlan: string;
+    deducibleAnual?: number;
+    coaseguroPct?: number;
+    maxBolsilloAnual?: number;
+  };
+  coberturas: CoverageDetail[];
+}
+
 export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceViewProps) {
-  const coverages = [
-    { category: 'Consultas Médicas', inNetwork: '90%', outNetwork: '60%', limit: 'Ilimitado' },
-    { category: 'Urgencias', inNetwork: '100%', outNetwork: '70%', limit: 'Ilimitado' },
-    { category: 'Exámenes Lab', inNetwork: '80%', outNetwork: '50%', limit: '$2,000,000 anual' },
-    { category: 'Hospitalización', inNetwork: '90%', outNetwork: '60%', limit: 'Ilimitado' },
-  ];
+  const { customerId } = useAppStore();
+  const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCoverage = async () => {
+      if (!customerId) {
+        setError('No se encontró ID del cliente');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await customerApi.getCoverage(customerId);
+        if (response.success && response.data) {
+          setCoverageData(response.data);
+        } else {
+          setError('No se pudieron cargar las coberturas');
+        }
+      } catch (err) {
+        console.error('Error fetching coverage:', err);
+        setError('Error al cargar las coberturas. Intenta de nuevo.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCoverage();
+  }, [customerId]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
+        <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
+          {!isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          )}
+          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Mi Seguro & Copagos</h2>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="animate-spin text-teal-600 mx-auto mb-2" size={32} />
+            <p className="text-sm text-slate-500 dark:text-slate-400">Cargando coberturas...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !coverageData) {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
+        <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
+          {!isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          )}
+          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Mi Seguro & Copagos</h2>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error || 'No se pudieron cargar los datos'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const coverages = coverageData.coberturas || [];
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -34,8 +135,8 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
           <div className="bg-gradient-to-br from-teal-600 to-teal-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
             <Shield className="absolute right-[-20px] top-[-20px] w-48 h-48 opacity-10 rotate-12" />
             <div className="relative z-10">
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">Salud Total Platinum</h2>
-              <p className="text-teal-100 mb-6">Póliza: #8829-3310-992</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">{coverageData.plan.nombrePlan}</h2>
+              <p className="text-teal-100 mb-6">Póliza: #{coverageData.numeroPoliza}</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Estado</p>
@@ -47,11 +148,11 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Titular</p>
-                  <p className="text-sm font-bold">Juan Delgado</p>
+                  <p className="text-sm font-bold">{coverageData.nombreCompleto || 'N/A'}</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Deducible</p>
-                  <p className="text-sm font-bold">$0</p>
+                  <p className="text-sm font-bold">${coverageData.plan.deducibleAnual || '0'}</p>
                 </div>
               </div>
             </div>
@@ -71,21 +172,33 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/50">
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoría</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">En Red</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fuera de Red</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Límites</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Especialidad</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Copago Fijo</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Coaseguro</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
-                  {coverages.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                      <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-200 text-sm">{row.category}</td>
-                      <td className="px-6 py-4 text-teal-600 dark:text-teal-400 font-bold text-sm">{row.inNetwork}</td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{row.outNetwork}</td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{row.limit}</td>
+                  {coverages.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4 text-center text-slate-500 dark:text-slate-400">
+                        No hay coberturas disponibles
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    coverages.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-200 text-sm">{row.especialidad}</td>
+                        <td className="px-6 py-4 text-teal-600 dark:text-teal-400 font-bold text-sm">${row.copagoFijo || '0'}</td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{row.coaseguroOverride ? `${row.coaseguroOverride}%` : 'Estándar'}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${row.cubierto ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
+                            {row.cubierto ? 'Cubierto' : 'No Cubierto'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

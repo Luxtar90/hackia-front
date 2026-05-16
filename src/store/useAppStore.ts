@@ -23,11 +23,33 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   lastUpdated: number;
+  conversationId?: string | null;
+}
+
+export interface MapCenter {
+  latitude: number;
+  longitude: number;
+}
+
+export interface SelectedHospital {
+  id?: string;
+  nombre: string;
+  ciudad?: string;
+  direccion?: string;
+  telefono?: string;
+  latitude?: number;
+  longitude?: number;
+  score?: number;
+  copay?: number;
+  specialty?: string;
+  reason?: string;
 }
 
 interface AppState {
   sessions: ChatSession[];
   currentSessionId: string | null;
+  selectedHospital: SelectedHospital | null;
+  mapCenter: MapCenter | null;
   isDarkMode: boolean;
   isAuthenticated: boolean;
   accessToken: string | null;
@@ -48,6 +70,9 @@ interface AppState {
   addMessage: (sessionId: string, message: Message) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   deleteSession: (id: string) => void;
+  setConversationId: (sessionId: string, conversationId: string) => void;
+  setSelectedHospital: (hospital: SelectedHospital | null) => void;
+  setMapCenter: (center: MapCenter | null) => void;
   }
 
   export const useAppStore = create<AppState>()(
@@ -55,6 +80,8 @@ interface AppState {
     (set) => ({
       sessions: [],
       currentSessionId: null,
+      selectedHospital: null,
+      mapCenter: null,
       isDarkMode: false,
       isAuthenticated: false,
       accessToken: null,
@@ -77,7 +104,14 @@ interface AppState {
 
       logout: () => {
         localStorage.removeItem('accessToken');
-        set({ isAuthenticated: false, accessToken: null, customerId: null, currentSessionId: null });
+        set({
+          isAuthenticated: false,
+          accessToken: null,
+          customerId: null,
+          currentSessionId: null,
+          selectedHospital: null,
+          mapCenter: null,
+        });
       },
 
       updateUser: (data) => set((state) => ({
@@ -86,7 +120,8 @@ interface AppState {
 
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
 
-      
+      setCurrentSession: (id) => set({ currentSessionId: id }),
+
       createNewSession: () => {
         const state = useAppStore.getState();
         const userName = state.user.name.split(' ')[0]; // Use first name
@@ -128,6 +163,16 @@ interface AppState {
         sessions: state.sessions.filter((s) => s.id !== id),
         currentSessionId: state.currentSessionId === id ? null : state.currentSessionId
       })),
+
+      setConversationId: (sessionId, conversationId) => set((state) => ({
+        sessions: state.sessions.map((s) => 
+          s.id === sessionId ? { ...s, conversationId } : s
+        )
+      })),
+
+      setSelectedHospital: (hospital) => set({ selectedHospital: hospital }),
+
+      setMapCenter: (center) => set({ mapCenter: center }),
     }),
     {
       name: 'estimador-storage',

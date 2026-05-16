@@ -1,16 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Hospital, ArrowRight, Menu } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useAppStore, type Message } from '../store/useAppStore';
+import { useAppStore, type Message, type SelectedHospital } from '../store/useAppStore';
 import { chatApi } from '../lib/api';
 
 interface ChatInterfaceProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  onOpenHospitals: () => void;
 }
 
-export function ChatInterface({ isSidebarOpen, setIsSidebarOpen }: ChatInterfaceProps) {
-  const { currentSessionId, sessions, addMessage, updateSessionTitle, customerId } = useAppStore();
+function extractCoordinates(hospital: any): { latitude?: number; longitude?: number } {
+  const latitude = hospital?.latitude ?? hospital?.latitud ?? hospital?.lat ?? hospital?.coords?.latitude;
+  const longitude = hospital?.longitude ?? hospital?.longitud ?? hospital?.lng ?? hospital?.coords?.longitude;
+
+  const parsedLatitude = typeof latitude === 'string' ? Number(latitude) : latitude;
+  const parsedLongitude = typeof longitude === 'string' ? Number(longitude) : longitude;
+
+  return {
+    latitude: Number.isFinite(parsedLatitude) ? parsedLatitude : undefined,
+    longitude: Number.isFinite(parsedLongitude) ? parsedLongitude : undefined,
+  };
+}
+
+export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals }: ChatInterfaceProps) {
+  const { currentSessionId, sessions, addMessage, updateSessionTitle, customerId, setConversationId, setSelectedHospital, setMapCenter } = useAppStore();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -45,20 +59,51 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen }: ChatInterface
     setIsTyping(true);
 
     try {
-      const response = await chatApi.sendMessage(currentInput, customerId || undefined);
+      const response = await chatApi.sendMessage(currentInput, customerId || undefined, currentSession?.conversationId || undefined);
       if (response.success) {
-        const { assistantMessage, businessData } = response.data;
+        const { assistantMessage, businessData, conversationId } = response.data;
+        const analysis = response.data.analysis;
+        
+        // Guardar el conversationId para futuras peticiones
+        if (conversationId && currentSessionId) {
+          setConversationId(currentSessionId, conversationId);
+        }
         
         let hospitalsData = [];
-        if (businessData.recommendedHospital || businessData.hospitals.length > 0) {
-          const hospitals = businessData.hospitals.length > 0 ? businessData.hospitals : [businessData.recommendedHospital];
+        const recommendedHospital = businessData.recommendedHospital || businessData.hospitals?.[0];
+        if (recommendedHospital || businessData.hospitals.length > 0) {
+          const hospitals = businessData.hospitals.length > 0 ? businessData.hospitals : [recommendedHospital];
           hospitalsData = hospitals.map((h: any) => ({
             name: h.nombre || 'Hospital',
             copay: businessData.coverage.estimatedCopay || 0,
             distance: h.ciudad || 'N/A',
             inNetwork: true,
-            rating: h.score || 4.5
+            rating: h.score || 4.5,
+            latitude: h.latitude ?? h.latitud ?? h.lat,
+            longitude: h.longitude ?? h.longitud ?? h.lng,
           }));
+
+          const selectedHospital: SelectedHospital = {
+            id: recommendedHospital?.id || recommendedHospital?.idHospital || recommendedHospital?.nombre,
+            nombre: recommendedHospital?.nombre || hospitalsData[0]?.name || 'Hospital recomendado',
+            ciudad: recommendedHospital?.ciudad,
+            direccion: recommendedHospital?.direccion,
+            telefono: recommendedHospital?.telefono,
+            score: recommendedHospital?.score,
+            copay: businessData.coverage?.estimatedCopay,
+            specialty: analysis?.specialty,
+            reason: analysis?.summary || assistantMessage,
+            ...extractCoordinates(recommendedHospital),
+          };
+
+          setSelectedHospital(selectedHospital);
+          if (selectedHospital.latitude !== undefined && selectedHospital.longitude !== undefined) {
+            setMapCenter({ latitude: selectedHospital.latitude, longitude: selectedHospital.longitude });
+          } else {
+            setMapCenter(null);
+          }
+
+          onOpenHospitals();
         }
 
         const botMessage: Message = {

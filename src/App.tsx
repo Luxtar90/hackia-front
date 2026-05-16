@@ -36,7 +36,13 @@ function App() {
   const renderActiveView = () => {
     switch (activeView) {
       case 'chat':
-        return <ChatInterface isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
+        return (
+          <ChatInterface
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            onOpenHospitals={() => setActiveView('hospitals')}
+          />
+        );
       case 'hospitals':
         return <HospitalsView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
       case 'insurance':
@@ -44,7 +50,13 @@ function App() {
       case 'settings':
         return <SettingsView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
       default:
-        return <ChatInterface isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
+        return (
+          <ChatInterface
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            onOpenHospitals={() => setActiveView('hospitals')}
+          />
+        );
     }
   };
 
