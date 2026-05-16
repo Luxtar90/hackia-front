@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Shield, CreditCard, CheckCircle, Info, Download, Menu, Loader } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { customerApi } from '../lib/api';
+import { translations } from '../lib/translations';
 
 interface InsuranceViewProps {
   isSidebarOpen: boolean;
@@ -32,15 +33,17 @@ interface CoverageData {
 }
 
 export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceViewProps) {
-  const { customerId } = useAppStore();
+  const { customerId, language } = useAppStore();
   const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const t = translations[language].insurance;
+
   useEffect(() => {
     const fetchCoverage = async () => {
       if (!customerId) {
-        setError('No se encontró ID del cliente');
+        setError(language === 'Español' ? 'No se encontró ID del cliente' : 'Customer ID not found');
         setLoading(false);
         return;
       }
@@ -52,18 +55,18 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
         if (response.success && response.data) {
           setCoverageData(response.data);
         } else {
-          setError('No se pudieron cargar las coberturas');
+          setError(language === 'Español' ? 'No se pudieron cargar las coberturas' : 'Could not load coverages');
         }
       } catch (err) {
         console.error('Error fetching coverage:', err);
-        setError('Error al cargar las coberturas. Intenta de nuevo.');
+        setError(t.errorLoading);
       } finally {
         setLoading(false);
       }
     };
 
     fetchCoverage();
-  }, [customerId]);
+  }, [customerId, language]);
 
   if (loading) {
     return (
@@ -77,12 +80,12 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
               <Menu size={20} />
             </button>
           )}
-          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Mi Seguro & Copagos</h2>
+          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">{t.title}</h2>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader className="animate-spin text-teal-600 mx-auto mb-2" size={32} />
-            <p className="text-sm text-slate-500 dark:text-slate-400">Cargando coberturas...</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t.loading}</p>
           </div>
         </div>
       </div>
@@ -101,11 +104,11 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
               <Menu size={20} />
             </button>
           )}
-          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Mi Seguro & Copagos</h2>
+          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">{t.title}</h2>
         </header>
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
-            <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error || 'No se pudieron cargar los datos'}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error || translations[language].common.error}</p>
           </div>
         </div>
       </div>
@@ -126,7 +129,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
             <Menu size={20} />
           </button>
         )}
-        <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Mi Seguro & Copagos</h2>
+        <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">{t.title}</h2>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -136,22 +139,22 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
             <Shield className="absolute right-[-20px] top-[-20px] w-48 h-48 opacity-10 rotate-12" />
             <div className="relative z-10">
               <h2 className="text-2xl md:text-3xl font-bold mb-2">{coverageData.plan.nombrePlan}</h2>
-              <p className="text-teal-100 mb-6">Póliza: #{coverageData.numeroPoliza}</p>
+              <p className="text-teal-100 mb-6">{t.policy}: #{coverageData.numeroPoliza}</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Estado</p>
-                  <p className="text-sm font-bold flex items-center gap-1"><CheckCircle size={14} /> Activo</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.status}</p>
+                  <p className="text-sm font-bold flex items-center gap-1"><CheckCircle size={14} /> {t.active}</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Vigencia</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.validUntil}</p>
                   <p className="text-sm font-bold">31 Dic 2026</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Titular</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.holder}</p>
                   <p className="text-sm font-bold">{coverageData.nombreCompleto || 'N/A'}</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">Deducible</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.deducible}</p>
                   <p className="text-sm font-bold">${coverageData.plan.deducibleAnual || '0'}</p>
                 </div>
               </div>
@@ -162,27 +165,27 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
             <div className="p-6 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <CreditCard className="text-teal-600" size={20} /> Detalle de Coberturas
+                <CreditCard className="text-teal-600" size={20} /> {t.benefitsDetail}
               </h3>
               <button className="text-xs font-bold text-teal-600 flex items-center gap-1 hover:underline">
-                <Download size={14} /> Descargar PDF
+                <Download size={14} /> {t.downloadPDF}
               </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/50">
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Especialidad</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Copago Fijo</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Coaseguro</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.specialty}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.fixedCopay}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.coinsurance}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.status}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                   {coverages.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-6 py-4 text-center text-slate-500 dark:text-slate-400">
-                        No hay coberturas disponibles
+                        {t.noCoverages}
                       </td>
                     </tr>
                   ) : (
@@ -190,10 +193,10 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
                       <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
                         <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-200 text-sm">{row.especialidad}</td>
                         <td className="px-6 py-4 text-teal-600 dark:text-teal-400 font-bold text-sm">${row.copagoFijo || '0'}</td>
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{row.coaseguroOverride ? `${row.coaseguroOverride}%` : 'Estándar'}</td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{row.coaseguroOverride ? `${row.coaseguroOverride}%` : t.standard}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${row.cubierto ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
-                            {row.cubierto ? 'Cubierto' : 'No Cubierto'}
+                            {row.cubierto ? t.covered : t.notCovered}
                           </span>
                         </td>
                       </tr>
@@ -210,9 +213,9 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
               <Info className="text-blue-600 dark:text-blue-400" size={20} />
             </div>
             <div>
-              <p className="text-sm font-bold text-blue-900 dark:text-blue-300">¿Cómo funcionan los copagos?</p>
+              <p className="text-sm font-bold text-blue-900 dark:text-blue-300">{t.howItWorks}</p>
               <p className="text-xs text-blue-700 dark:text-blue-400 mt-1 leading-relaxed">
-                El copago es el monto fijo que pagas por cada servicio médico. El estimador agéntico calcula este valor automáticamente basándose en tu red Platinum. Los valores fuera de red están sujetos a reembolso.
+                {t.howItWorksDesc}
               </p>
             </div>
           </div>

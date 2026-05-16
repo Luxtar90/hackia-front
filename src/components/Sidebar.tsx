@@ -3,6 +3,7 @@ import { Activity, MessageSquare, Settings, CreditCard, LogOut, Trash2, Plus, Me
 import { cn } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { Modal } from './Modal';
+import { translations } from '../lib/translations';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,9 +13,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: SidebarProps) {
-  const { sessions, currentSessionId, setCurrentSession, createNewSession, deleteSession, user, logout } = useAppStore();
+  const { sessions, currentSessionId, setCurrentSession, createNewSession, deleteSession, user, logout, language } = useAppStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+
+  const t = translations[language].sidebar;
 
   const handleNewChat = () => {
     createNewSession();
@@ -63,14 +66,14 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
               "flex items-center gap-3 group transition-all duration-300",
               !isOpen && "hover:scale-110 active:scale-90"
             )}
-            title={isOpen ? "Contraer menú" : "Expandir menú"}
+            title={isOpen ? t.collapse : t.expand}
           >
             <div className="w-9 h-9 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20 shrink-0 group-hover:bg-teal-500 transition-colors">
               <Activity className="text-white w-5 h-5" />
             </div>
             {isOpen && (
               <span className="font-bold text-slate-800 dark:text-white tracking-tight animate-in fade-in slide-in-from-left-2 duration-500 whitespace-nowrap">
-                Estimador<span className="text-teal-600">Agéntico</span>
+                {t.appTitle}<span className="text-teal-600">{t.appSubtitle}</span>
               </span>
             )}
           </button>
@@ -85,7 +88,9 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
             {isOpen && (
               <div className="overflow-hidden animate-in fade-in duration-500">
                 <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider truncate">{user.plan}</p>
+                <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider truncate">
+                  {user.plan === 'Salud Total Platinum' && language === 'Inglés' ? 'Salud Total Platinum' : (user.plan === 'Plan Estándar' && language === 'Inglés' ? 'Standard Plan' : user.plan)}
+                </p>
               </div>
             )}
           </div>
@@ -95,7 +100,7 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
         <nav className={cn("flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar overflow-x-hidden", !isOpen && "lg:block hidden")}>
           {/* Main Menu */}
           <div>
-            {isOpen && <p className="px-2 mb-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] animate-in fade-in duration-500">Principal</p>}
+            {isOpen && <p className="px-2 mb-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] animate-in fade-in duration-500">{t.mainMenu}</p>}
             <div className="space-y-1">
               <button 
                 onClick={handleNewChat}
@@ -103,10 +108,10 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                   "w-full flex items-center text-sm font-bold text-white bg-teal-600 rounded-xl transition-all shadow-lg shadow-teal-500/20 hover:bg-teal-700 active:scale-95 mb-4",
                   isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
                 )}
-                title="Nueva Consulta"
+                title={t.newChat}
               >
                 <Plus size={18} className="shrink-0" /> 
-                {isOpen && <span className="animate-in fade-in duration-500">Nueva Consulta</span>}
+                {isOpen && <span className="animate-in fade-in duration-500">{t.newChat}</span>}
               </button>
 
               <button 
@@ -116,10 +121,10 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                   activeView === 'hospitals' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50",
                   isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
                 )}
-                title="Hospitales"
+                title={t.hospitals}
               >
                 <MapIcon size={18} className={cn("shrink-0", activeView === 'hospitals' ? "text-teal-600" : "text-slate-400 group-hover:text-teal-500")} /> 
-                {isOpen && <span className="animate-in fade-in duration-500">Hospitales</span>}
+                {isOpen && <span className="animate-in fade-in duration-500">{t.hospitals}</span>}
               </button>
               
               <button 
@@ -129,10 +134,10 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                   activeView === 'insurance' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50",
                   isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
                 )}
-                title="Mi Seguro & Copagos"
+                title={t.insurance}
               >
                 <CreditCard size={18} className={cn("shrink-0", activeView === 'insurance' ? "text-teal-600" : "text-slate-400 group-hover:text-teal-500")} /> 
-                {isOpen && <span className="animate-in fade-in duration-500 whitespace-nowrap">Mi Seguro & Copagos</span>}
+                {isOpen && <span className="animate-in fade-in duration-500 whitespace-nowrap">{t.insurance}</span>}
               </button>
 
               <button 
@@ -142,10 +147,10 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                   activeView === 'settings' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50",
                   isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
                 )}
-                title="Configuración"
+                title={t.settings}
               >
                 <Settings size={18} className={cn("shrink-0", activeView === 'settings' ? "text-teal-600" : "text-slate-400 group-hover:text-teal-500")} /> 
-                {isOpen && <span className="animate-in fade-in duration-500">Configuración</span>}
+                {isOpen && <span className="animate-in fade-in duration-500">{t.settings}</span>}
               </button>
             </div>
           </div>
@@ -153,7 +158,7 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
           {/* History */}
           {sessions.length > 0 && (
             <div>
-              {isOpen && <p className="px-2 mb-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] animate-in fade-in duration-500">Historial</p>}
+              {isOpen && <p className="px-2 mb-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] animate-in fade-in duration-500">{t.history}</p>}
               <div className="space-y-1">
                 {sessions.map((session) => (
                   <div key={session.id} className="group relative">
@@ -164,10 +169,14 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                         currentSessionId === session.id && activeView === 'chat' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 font-bold" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 font-medium",
                         isOpen ? "gap-3 px-3 py-2.5 pr-10" : "px-0 py-2.5 justify-center"
                       )}
-                      title={session.title}
+                      title={session.title === 'Nueva Consulta' ? t.newChat : session.title}
                     >
                       <MessageSquare size={16} className={cn("shrink-0", currentSessionId === session.id ? "text-teal-500" : "text-slate-400 group-hover:text-teal-500")} />
-                      {isOpen && <span className="truncate text-left animate-in fade-in duration-500">{session.title}</span>}
+                      {isOpen && (
+                        <span className="truncate text-left animate-in fade-in duration-500">
+                          {session.title === 'Nueva Consulta' ? t.newChat : session.title}
+                        </span>
+                      )}
                     </button>
                     {isOpen && (
                       <button 
@@ -192,10 +201,10 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
               "w-full flex items-center text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors",
               isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
             )} 
-            title="Cerrar Sesión"
+            title={t.logout}
           >
             <LogOut size={18} className="shrink-0" /> 
-            {isOpen && <span className="animate-in fade-in duration-500">Cerrar Sesión</span>}
+            {isOpen && <span className="animate-in fade-in duration-500">{t.logout}</span>}
           </button>
         </div>
       </aside>
@@ -215,9 +224,9 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
         onClose={() => setShowLogoutModal(false)}
         onConfirm={logout}
         variant="danger"
-        title="Cerrar Sesión"
-        description="¿Estás seguro de que deseas salir? Deberás ingresar tus credenciales nuevamente para acceder a tu historial de salud."
-        confirmText="Cerrar Sesión"
+        title={t.logoutTitle}
+        description={t.logoutDesc}
+        confirmText={t.logout}
       />
 
       <Modal 
@@ -225,9 +234,9 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
         onClose={() => setSessionToDelete(null)}
         onConfirm={() => sessionToDelete && deleteSession(sessionToDelete)}
         variant="danger"
-        title="Eliminar Consulta"
-        description="Esta acción no se puede deshacer. Se borrará permanentemente todo el historial de esta consulta."
-        confirmText="Eliminar"
+        title={t.deleteChatTitle}
+        description={t.deleteChatDesc}
+        confirmText={translations[language].common.delete}
       />
     </>
   );

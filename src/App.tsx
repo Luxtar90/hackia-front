@@ -4,20 +4,35 @@ import { ChatInterface } from './components/ChatInterface'
 import { InsuranceView } from './components/InsuranceView'
 import { SettingsView } from './components/SettingsView'
 import { HospitalsView } from './components/HospitalsView'
+import { ProfileView } from './components/ProfileView'
 import { AuthView } from './components/AuthView'
 import { useAppStore } from './store/useAppStore'
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState('chat');
-  const { isDarkMode, createNewSession, sessions, isAuthenticated } = useAppStore();
+  const { isDarkMode, createNewSession, sessions, isAuthenticated, fetchSessions, currentSessionId, setCurrentSession } = useAppStore();
 
-  // Initialize first session if empty
+  // Initialize and fetch remote history sequentially
   useEffect(() => {
-    if (sessions.length === 0 && isAuthenticated) {
-      createNewSession();
-    }
-  }, [isAuthenticated, sessions.length]);
+    const initApp = async () => {
+      if (isAuthenticated) {
+        // 1. Cargamos el historial de la nube
+        await fetchSessions();
+        
+        // 2. Comprobamos el estado después de la carga
+        const updatedState = useAppStore.getState();
+        if (updatedState.sessions.length === 0) {
+          createNewSession();
+        } else if (!updatedState.currentSessionId) {
+          // Si hay sesiones pero ninguna activa, seleccionamos la más reciente
+          await setCurrentSession(updatedState.sessions[0].id);
+        }
+      }
+    };
+    
+    initApp();
+  }, [isAuthenticated]);
 
   // Sync dark mode class with HTML element
   useEffect(() => {
@@ -48,7 +63,15 @@ function App() {
       case 'insurance':
         return <InsuranceView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
       case 'settings':
-        return <SettingsView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
+        return (
+          <SettingsView 
+            isSidebarOpen={isSidebarOpen} 
+            setIsSidebarOpen={setIsSidebarOpen} 
+            onOpenProfile={() => setActiveView('profile')}
+          />
+        );
+      case 'profile':
+        return <ProfileView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} onBack={() => setActiveView('settings')} />;
       default:
         return (
           <ChatInterface

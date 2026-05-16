@@ -1,3 +1,5 @@
+import { useAppStore } from '../store/useAppStore';
+
 const API_BASE_URL = 'http://localhost:3000/api';
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
@@ -12,6 +14,12 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     ...options,
     headers,
   });
+
+  if (response.status === 401) {
+    // Session expired or invalid
+    useAppStore.getState().logout();
+    throw new Error('Session expired');
+  }
 
   const data = await response.json();
   if (!response.ok) {
@@ -118,8 +126,12 @@ export const chatApi = {
 
     return result;
   },
-  getHistory: (customerId: string) =>
-    apiRequest(`/chat/history/${customerId}`),
+  getHistory: (customerId: string, conversationId?: string) =>
+    apiRequest(`/chat/history/${customerId}${conversationId ? `?conversationId=${conversationId}` : ''}`),
+  deleteSession: (customerId: string, conversationId: string) =>
+    apiRequest(`/chat/history/${customerId}/${conversationId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const authApi = {
@@ -142,6 +154,19 @@ export const authApi = {
     apiRequest('/auth/password', {
       method: 'PUT',
       body: JSON.stringify({ password }),
+    }),
+  requestCode: () =>
+    apiRequest('/auth/request-code', {
+      method: 'POST',
+    }),
+  verifyAndChangePassword: (data: { code: string; password: string }) =>
+    apiRequest('/auth/verify-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteAccount: () =>
+    apiRequest('/auth/account', {
+      method: 'DELETE',
     }),
 };
 

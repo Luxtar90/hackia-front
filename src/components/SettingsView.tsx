@@ -1,26 +1,31 @@
 import { useState } from 'react';
-import { User, Bell, Lock, Eye, Moon, Sun, Globe, Menu, ChevronRight } from 'lucide-react';
+import { User, Moon, Sun, Globe, Menu, ChevronRight, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { authApi } from '../lib/api';
 import { Modal } from './Modal';
+import { translations } from '../lib/translations';
 
 interface SettingsViewProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  onOpenProfile: () => void;
 }
 
-export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewProps) {
-  const { isDarkMode, toggleDarkMode, user, updateUser } = useAppStore();
+export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }: SettingsViewProps) {
+  const { isDarkMode, toggleDarkMode, user, updateUser, language, setLanguage, deleteAccount } = useAppStore();
   
   const [editingProfile, setEditingProfile] = useState(false);
   const [newName, setNewName] = useState(user.name);
   const [newEmail, setNewEmail] = useState(user.email);
   
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  
   const [changingLanguage, setChangingLanguage] = useState(false);
-  const [language, setLanguage] = useState('Español');
+  const [selectedLang, setSelectedLang] = useState(language);
+
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const t = translations[language].settings;
+  const common = translations[language].common;
 
   const handleUpdateProfile = async () => {
     try {
@@ -32,60 +37,55 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
     }
   };
 
-  const handleChangePassword = async () => {
+  const handleConfirmLanguage = () => {
+    setLanguage(selectedLang);
+    setChangingLanguage(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
     try {
-      await authApi.updatePassword(newPassword);
-      setChangingPassword(false);
-      setNewPassword('');
+      await deleteAccount();
     } catch (error) {
-      console.error('Error changing password:', error);
+      console.error('Error deleting account:', error);
+      setDeleting(false);
+      alert(language === 'Español' ? 'No se pudo eliminar la cuenta' : 'Could not delete account');
     }
   };
 
   const sections = [
     {
-      title: 'Perfil',
+      title: t.profile,
       items: [
         { 
           icon: User, 
-          label: 'Información Personal', 
+          label: t.personalInfo, 
           value: user.name, 
           type: 'link', 
-          onClick: () => setEditingProfile(true) 
+          onClick: onOpenProfile 
         },
         { 
           icon: Globe, 
-          label: 'Idioma', 
-          value: language === 'Español' ? 'Español (ES)' : 'Inglés (EN)', 
+          label: t.language, 
+          value: language === 'Español' ? 'Español (ES)' : 'English (EN)', 
           type: 'link', 
-          onClick: () => setChangingLanguage(true) 
+          onClick: () => {
+            setSelectedLang(language);
+            setChangingLanguage(true);
+          } 
         },
       ]
     },
     {
-      title: 'Preferencias',
+      title: t.preferences,
       items: [
         { 
           icon: isDarkMode ? Moon : Sun, 
-          label: 'Modo Oscuro', 
-          value: isDarkMode ? 'Activado' : 'Desactivado', 
+          label: t.darkMode, 
+          value: isDarkMode ? t.on : t.off, 
           type: 'toggle',
           action: toggleDarkMode 
         },
-        { icon: Bell, label: 'Notificaciones', value: 'Activadas', type: 'link' },
-      ]
-    },
-    {
-      title: 'Seguridad',
-      items: [
-        { 
-          icon: Lock, 
-          label: 'Cambiar Contraseña', 
-          value: '********', 
-          type: 'link', 
-          onClick: () => setChangingPassword(true) 
-        },
-        { icon: Eye, label: 'Privacidad de Datos', value: 'Protegido', type: 'link' },
       ]
     }
   ];
@@ -102,14 +102,20 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
             <Menu size={20} />
           </button>
         )}
-        <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Configuración</h2>
+        <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
+          {t.title}
+        </h2>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
         <div className="max-w-2xl mx-auto space-y-8 pb-12">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Configuración</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Administra tu cuenta y preferencias de la aplicación.</p>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+              {t.title}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {t.subtitle}
+            </p>
           </div>
 
           {sections.map((section, sIdx) => (
@@ -150,8 +156,12 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
           ))}
 
           <div className="pt-4">
-            <button className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 font-bold text-sm rounded-2xl border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all">
-              Eliminar Cuenta
+            <button 
+              onClick={() => setShowDeleteAccountModal(true)}
+              className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 font-bold text-sm rounded-2xl border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Trash2 size={18} />
+              {t.deleteAccount}
             </button>
             <p className="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-widest">
               Estimador Agéntico v1.0.4
@@ -165,11 +175,13 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
         isOpen={editingProfile}
         onClose={() => setEditingProfile(false)}
         onConfirm={handleUpdateProfile}
-        title="Editar Perfil"
+        title={t.editProfile}
+        confirmText={common.save}
+        cancelText={common.cancel}
       >
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{translations[language].profile.fullName}</label>
             <input 
               type="text" 
               value={newName}
@@ -178,7 +190,7 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Correo Electrónico</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{translations[language].profile.email}</label>
             <input 
               type="email" 
               value={newEmail}
@@ -190,43 +202,38 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen }: SettingsViewPr
       </Modal>
 
       <Modal
-        isOpen={changingPassword}
-        onClose={() => setChangingPassword(false)}
-        onConfirm={handleChangePassword}
-        title="Cambiar Contraseña"
-      >
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nueva Contraseña</label>
-            <input 
-              type="password" 
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white"
-            />
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
         isOpen={changingLanguage}
         onClose={() => setChangingLanguage(false)}
-        onConfirm={() => setChangingLanguage(false)}
-        title="Seleccionar Idioma"
+        onConfirm={handleConfirmLanguage}
+        title={language === 'Español' ? 'Seleccionar Idioma' : 'Select Language'}
+        confirmText={common.confirm}
+        cancelText={common.cancel}
       >
         <div className="space-y-2 py-2">
           {['Español', 'Inglés'].map((lang) => (
             <button
               key={lang}
-              onClick={() => setLanguage(lang)}
-              className={`w-full text-left p-4 rounded-xl text-sm font-semibold transition-all ${language === lang ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 border border-teal-100 dark:border-teal-800' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent'}`}
+              onClick={() => setSelectedLang(lang as 'Español' | 'Inglés')}
+              className={`w-full text-left p-4 rounded-xl text-sm font-semibold transition-all ${selectedLang === lang ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 border border-teal-100 dark:border-teal-800' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent'}`}
             >
               {lang} {lang === 'Español' ? '(ES)' : '(EN)'}
             </button>
           ))}
         </div>
       </Modal>
+
+      <Modal
+        isOpen={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
+        variant="danger"
+        title={t.deleteAccount}
+        confirmText={deleting ? common.loading : common.delete}
+        cancelText={common.cancel}
+        description={language === 'Español' 
+          ? '¿Estás seguro de que deseas eliminar tu cuenta? Esta acción borrará permanentemente todos tus datos de salud y conversaciones en la nube. No se puede deshacer.'
+          : 'Are you sure you want to delete your account? This action will permanently erase all your health data and conversations in the cloud. It cannot be undone.'}
+      />
     </div>
   );
 }

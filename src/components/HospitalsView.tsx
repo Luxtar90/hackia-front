@@ -10,6 +10,7 @@ import {
   normalizeCoordinates,
 } from '../lib/geo';
 import { HospitalsLeafletMap } from './HospitalsLeafletMap';
+import { translations } from '../lib/translations';
 
 interface HospitalsViewProps {
   isSidebarOpen: boolean;
@@ -128,7 +129,9 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS_KM);
-  const { selectedHospital, setSelectedHospital, setMapCenter, userLocation, customerId } = useAppStore();
+  const { selectedHospital, setSelectedHospital, setMapCenter, userLocation, customerId, language } = useAppStore();
+
+  const t = translations[language].hospitals;
 
   useEffect(() => {
     const id = window.setTimeout(() => setRadiusKm(radiusInput), 400);
@@ -196,11 +199,11 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
             setError(null);
           }
         } else {
-          setError('No se pudieron cargar los hospitales');
+          setError(language === 'Español' ? 'No se pudieron cargar los hospitales' : 'Could not load hospitals');
         }
       } catch (err) {
         console.error('Error fetching hospitals:', err);
-        if (!cancelled) setError('Error al cargar los hospitales. Intenta de nuevo.');
+        if (!cancelled) setError(t.loadingHospitals);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -211,7 +214,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
       cancelled = true;
     };
     // Radio, póliza (copago en mapa) y modo catálogo.
-  }, [storageReady, radiusKm, customerId]);
+  }, [storageReady, radiusKm, customerId, language]);
 
   const showSpinner = !storageReady || loading;
 
@@ -264,12 +267,12 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
         latitude: c?.latitude,
         longitude: c?.longitude,
         score: hospital.rating,
-        reason: `Seleccionado en el mapa o la lista · ${hospital.ciudad}`,
+        reason: language === 'Español' ? `Seleccionado en el mapa o la lista · ${hospital.ciudad}` : `Selected on map or list · ${hospital.ciudad}`,
       });
 
       setMapCenter(c ? { latitude: c.latitude, longitude: c.longitude } : null);
     },
-    [setMapCenter, setSelectedHospital],
+    [setMapCenter, setSelectedHospital, language],
   );
 
   return (
@@ -285,11 +288,11 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
           </button>
         )}
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Hospitales cercanos</h2>
+          <h2 className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">{t.title}</h2>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
             {userMapCenter
-              ? `Radio ${radiusKm} km · tu red y otros centros cercanos`
-              : 'Lista de hospitales de tu red · activa ubicación para ver el mapa y más centros'}
+              ? t.radiusInfo(radiusKm)
+              : t.noGeoInfo}
           </p>
         </div>
       </header>
@@ -302,7 +305,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={16} />
               <input 
                 type="text" 
-                placeholder="Buscar clínica u hospital..."
+                placeholder={t.searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:text-white transition-all shadow-sm"
@@ -310,13 +313,13 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
             </div>
 
             <div>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Cobertura</p>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">{t.coverage}</p>
               <div className="flex flex-wrap gap-1.5">
                 {(
                   [
-                    { id: 'all' as const, label: 'Todos' },
-                    { id: 'covered' as const, label: 'Con cobertura' },
-                    { id: 'uncovered' as const, label: 'Sin cobertura' },
+                    { id: 'all' as const, label: t.all },
+                    { id: 'covered' as const, label: t.withCoverage },
+                    { id: 'uncovered' as const, label: t.withoutCoverage },
                   ]
                 ).map((opt) => (
                   <button
@@ -339,7 +342,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
             <div className={cn(!userMapCenter && 'opacity-60')}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                  Radio de búsqueda
+                  {t.searchRadius}
                 </p>
                 <span className="text-xs font-black text-teal-600 dark:text-teal-400 tabular-nums">{radiusInput} km</span>
               </div>
@@ -362,7 +365,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                 <span>{MAX_RADIUS_KM} km</span>
               </div>
               <div className="flex items-center gap-2 mt-2">
-                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Exacto</label>
+                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">{t.exact}</label>
                 <input
                   type="number"
                   min={MIN_RADIUS_KM}
@@ -379,7 +382,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               </div>
               {!userMapCenter && (
                 <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                  Activa la ubicación para ajustar el radio y cargar más centros cercanos en el mapa.
+                  {t.activateGeo}
                 </p>
               )}
             </div>
@@ -390,7 +393,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Loader className="animate-spin text-teal-600 mx-auto mb-2" size={32} />
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Cargando hospitales...</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{t.loadingHospitals}</p>
                 </div>
               </div>
             ) : error ? (
@@ -400,19 +403,19 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
             ) : nearbyHospitals.length === 0 ? (
               <div className="text-center p-4 space-y-2">
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No hay hospitales activos en el catálogo
+                  {t.noActiveHospitals}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Añade hospitales activos en la base de datos del sistema.
+                  {t.noActiveDesc}
                 </p>
               </div>
             ) : listHospitals.length === 0 ? (
               <div className="text-center p-4 space-y-2">
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Nada coincide con este filtro
+                  {t.noMatches}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Prueba “Todos” o revisa la búsqueda por nombre o ciudad.
+                  {t.noMatchesDesc}
                 </p>
               </div>
             ) : (
@@ -433,11 +436,11 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                     </h4>
                     {hospital.tieneCobertura !== false ? (
                       <span className="text-[9px] bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2 py-0.5 rounded-full font-bold uppercase">
-                        Con cobertura
+                        {translations[language].chat.inNetwork}
                       </span>
                     ) : (
                       <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase">
-                        Sin cobertura
+                        {translations[language].chat.outNetwork}
                       </span>
                     )}
                   </div>
@@ -447,7 +450,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                   {(hospital.carteraServicios?.length ?? 0) > 0 && (
                     <div className="mb-3 flex flex-wrap items-center gap-1">
                       <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 w-full mb-0.5">
-                        Cartera en sistema
+                        {t.portfolioTitle}
                       </span>
                       {hospital.carteraServicios!.slice(0, 8).map((tag) => (
                         <span
@@ -472,7 +475,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                       {hospital.distancia ? `${hospital.distancia.toFixed(1)} km` : 'Distancia N/A'}
                     </div>
                     <div className="text-[11px] font-bold uppercase tracking-wider text-green-500">
-                      Abierto
+                      {t.open}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -484,7 +487,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                         window.open(buildGoogleDirectionsUrl(hospital, userLocation), '_blank', 'noopener,noreferrer');
                       }}
                     >
-                      <Navigation size={12} /> Cómo llegar
+                      <Navigation size={12} /> {t.howToGet}
                     </button>
                     {hospital.telefono ? (
                       <a
@@ -492,11 +495,11 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                         className="flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Phone size={12} /> Llamar
+                        <Phone size={12} /> {t.call}
                       </a>
                     ) : (
                       <span className="flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-700/30 rounded-xl text-[11px] font-bold text-slate-400 cursor-not-allowed">
-                        <Phone size={12} /> Llamar
+                        <Phone size={12} /> {t.call}
                       </span>
                     )}
                   </div>
@@ -546,14 +549,14 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                 <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Hospital recomendado</p>
+                    <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">{t.recommended}</p>
                     {activeHospital.tieneCobertura !== false ? (
                       <span className="text-[9px] bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2 py-0.5 rounded-full font-bold uppercase">
-                        Con cobertura
+                        {translations[language].chat.inNetwork}
                       </span>
                     ) : (
                       <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase">
-                        Sin cobertura
+                        {translations[language].chat.outNetwork}
                       </span>
                     )}
                   </div>
@@ -588,14 +591,14 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                   rel="noreferrer"
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 transition-colors shadow-md shadow-teal-900/20"
                 >
-                  <Navigation size={14} /> Abrir en Google Maps
+                  <Navigation size={14} /> {t.openMaps}
                 </a>
                 {activeHospital.telefono && (
                   <a
                     href={`tel:${activeHospital.telefono}`}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:border-teal-300 transition-colors"
                   >
-                    <Phone size={14} /> Llamar
+                    <Phone size={14} /> {t.call}
                   </a>
                 )}
               </div>
@@ -612,26 +615,24 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               )}
             >
               <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
-                Leyenda
+                {t.legend}
               </p>
               {canInteractiveMap && (
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 leading-snug">
-                  Los números en círculo teal agrupan varios centros: tócalos para desplegarlos. En cada pin: icono de hospital;{' '}
-                  <span className="font-black">$</span> copago ref., <span className="font-black">×</span> fuera de red,{' '}
-                  <span className="font-black">~</span> sin dato de copago.
+                  {t.legendDesc}
                 </p>
               )}
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5 w-3 h-3 bg-teal-600 rounded-full shrink-0" />
                   <span className="text-[11px] md:text-xs font-bold text-slate-700 dark:text-slate-300 leading-snug">
-                    En tu red (con cobertura)
+                    {t.inNetworkLegend}
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5 w-3 h-3 bg-slate-400 rounded-full shrink-0" />
                   <span className="text-[11px] md:text-xs font-bold text-slate-700 dark:text-slate-300 leading-snug">
-                    Fuera de tu red (sin cobertura del plan)
+                    {t.outNetworkLegend}
                   </span>
                 </div>
               </div>
@@ -643,4 +644,3 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
     </div>
   );
 }
-
