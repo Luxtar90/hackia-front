@@ -14,7 +14,6 @@ interface UsersViewProps {
 
 interface UserRow {
   id: string;
-  userId: string;
   email: string;
   nombre: string;
   rol: string;
@@ -120,6 +119,7 @@ function EditUserModal({ user, onClose, onSaved, isES }: {
               onChange={(e) => setRol(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500/20 outline-none border-none"
             >
+              <option value="user">{isES ? 'Usuario' : 'User'}</option>
               <option value="patient">{isES ? 'Paciente' : 'Patient'}</option>
               <option value="admin">Admin</option>
             </select>
@@ -210,7 +210,7 @@ function CreatePatientModal({ user, onClose, onCreated, isES }: {
     setError(null);
     try {
       await adminApi.createPatient({
-        numeroPoliza: user.userId,
+        numeroPoliza: user.id,
         email: user.email,
         nombreCompleto: user.nombre,
         planPageId: planPageId || undefined,
@@ -500,7 +500,9 @@ export function UsersView({ isSidebarOpen, setIsSidebarOpen }: UsersViewProps) {
                         'inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide',
                         user.rol === 'admin'
                           ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                          : user.rol === 'patient'
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                       )}>
                         {user.rol}
                       </span>

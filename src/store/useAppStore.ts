@@ -103,6 +103,7 @@ interface AppState {
   isAuthenticated: boolean;
   accessToken: string | null;
   customerId: string | null;
+  userId: string | null;
   user: {
     name: string;
     plan: string;
@@ -142,6 +143,7 @@ export const useAppStore = create<AppState>()(
       isAuthenticated: false,
       accessToken: null,
       customerId: null,
+      userId: null,
       user: {
         name: '',
         plan: '',
@@ -188,7 +190,8 @@ export const useAppStore = create<AppState>()(
         set({
           isAuthenticated: true,
           accessToken: token,
-          customerId: user.patientId || user.id,
+          customerId: user.userId || user.patientId || user.id,
+          userId: user.id || null,
           user: {
             name: user.nombre || user.name || '',
             email: user.email || '',
@@ -206,6 +209,7 @@ export const useAppStore = create<AppState>()(
           isAuthenticated: false,
           accessToken: null,
           customerId: null,
+          userId: null,
           currentSessionId: null,
           selectedHospital: null,
           mapCenter: null,
@@ -355,6 +359,7 @@ export const useAppStore = create<AppState>()(
         isAuthenticated: state.isAuthenticated,
         accessToken: state.accessToken,
         customerId: state.customerId,
+        userId: state.userId,
         user: state.user,
       }),
     }

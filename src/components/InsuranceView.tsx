@@ -43,7 +43,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
   useEffect(() => {
     const fetchCoverage = async () => {
       if (!customerId) {
-        setError(language === 'Español' ? 'No se encontró ID del cliente' : 'Customer ID not found');
+        setError(language === 'Español' ? 'No se encontró ID del usuario' : 'User ID not found');
         setLoading(false);
         return;
       }
