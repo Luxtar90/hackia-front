@@ -5,10 +5,11 @@ import { InsuranceView } from './components/InsuranceView'
 import { SettingsView } from './components/SettingsView'
 import { HospitalsView } from './components/HospitalsView'
 import { ProfileView } from './components/ProfileView'
+import { UsersView } from './components/UsersView'
 import { AuthView } from './components/AuthView'
 import { useAppStore } from './store/useAppStore'
 
-const APP_VIEWS = ['chat', 'hospitals', 'insurance', 'settings', 'profile'] as const
+const APP_VIEWS = ['chat', 'hospitals', 'insurance', 'settings', 'profile', 'users'] as const
 type AppView = (typeof APP_VIEWS)[number]
 
 function coerceAppView(view: string): AppView {
@@ -105,6 +106,8 @@ function App() {
         );
       case 'profile':
         return <ProfileView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} onBack={() => navigateView('settings')} />;
+      case 'users':
+        return <UsersView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />;
       default:
         return (
           <ChatInterface

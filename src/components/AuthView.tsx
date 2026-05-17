@@ -25,17 +25,15 @@ export function AuthView() {
       if (isLogin) {
         const response = await authApi.login({ email, password });
         if (response.success) {
-          useAppStore.getState().login(response.data.accessToken, {
-            ...response.data.user,
-            name: response.data.user.name || name || (language === 'Español' ? 'Usuario' : 'User')
-          });
+          useAppStore.getState().login(response.data.accessToken, response.data.user);
         }
       } else {
-        const response = await authApi.register({ 
-          email, 
-          password, 
+        const response = await authApi.register({
+          email,
+          password,
           role: 'patient',
-          name 
+          nombre: name,
+          activo: true,
         });
         if (response.success) {
           setSuccessMessage(t.successCreated);
@@ -97,12 +95,14 @@ export function AuthView() {
                 <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">{t.name}</label>
                 <div className="relative group">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={18} />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Juan Delgado"
                     className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-teal-500/20 dark:text-white transition-all"
+                    required
+                    minLength={1}
                   />
                 </div>
               </div>

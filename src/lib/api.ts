@@ -193,6 +193,33 @@ export const hospitalApi = {
   },
 };
 
+export const adminApi = {
+  listUsers: (pageSize: number = 20, cursor?: string) => {
+    const params = new URLSearchParams();
+    params.append('pageSize', pageSize.toString());
+    if (cursor) params.append('cursor', cursor);
+    return apiRequest(`/auth/users?${params.toString()}`);
+  },
+  updateUser: (id: string, data: { nombre?: string; email?: string; rol?: string; activo?: boolean }) =>
+    apiRequest(`/auth/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  getPlans: () => apiRequest('/plans'),
+  createPatient: (data: {
+    numeroPoliza: string;
+    email: string;
+    nombreCompleto: string;
+    planPageId?: string;
+    deducibleRestante?: number;
+    estado?: string;
+  }) =>
+    apiRequest('/patients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
 export const customerApi = {
   getCoverage: (customerId: string) =>
     apiRequest(`/customer/${customerId}/coverage`),

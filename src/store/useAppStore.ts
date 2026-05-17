@@ -3,6 +3,15 @@ import { persist } from 'zustand/middleware';
 import { translations } from '../lib/translations';
 import { chatApi, authApi } from '../lib/api';
 
+function parseJwt(token: string): Record<string, any> {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+}
+
 export interface Hospital {
   name: string;
   /** Copago estimado del plan; ausente si el centro está fuera de red (OSM u otros). */
@@ -98,6 +107,7 @@ interface AppState {
     name: string;
     plan: string;
     email: string;
+    role?: string;
   };
   
   // Actions
@@ -133,9 +143,10 @@ export const useAppStore = create<AppState>()(
       accessToken: null,
       customerId: null,
       user: {
-        name: 'Juan Delgado',
-        plan: 'Salud Total Platinum',
-        email: 'juan.delgado@email.com',
+        name: '',
+        plan: '',
+        email: '',
+        role: undefined,
       },
 
       fetchSessions: async () => {
@@ -169,14 +180,21 @@ export const useAppStore = create<AppState>()(
 
       login: async (token, user) => {
         localStorage.setItem('accessToken', token);
-        const lang = get().language;
-        const defaultPlan = lang === 'Español' ? 'Plan Estándar' : 'Standard Plan';
-        
-        set({ 
-          isAuthenticated: true, 
-          accessToken: token, 
+
+        // El role siempre está en el JWT de forma confiable
+        const jwtPayload = parseJwt(token);
+        const role = jwtPayload.role || user.role;
+
+        set({
+          isAuthenticated: true,
+          accessToken: token,
           customerId: user.patientId || user.id,
-          user: { ...user, name: user.name || (lang === 'Español' ? 'Usuario' : 'User'), plan: user.plan || defaultPlan }
+          user: {
+            name: user.nombre || user.name || '',
+            email: user.email || '',
+            plan: user.plan || '',
+            role,
+          },
         });
 
         await get().fetchSessions();
