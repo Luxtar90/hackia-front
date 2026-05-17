@@ -1,6 +1,8 @@
 import { useAppStore } from '../store/useAppStore';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+/** Sin barra final; en prod define `VITE_API_URL=https://tu-backend.vercel.app` */
+const API_ORIGIN = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'http://localhost:3000';
+const API_BASE_URL = `${API_ORIGIN}/api`;
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('accessToken');
