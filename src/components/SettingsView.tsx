@@ -136,7 +136,8 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
                     
                     {item.type === 'toggle' ? (
                       <button 
-                        onClick={item.action}
+                        type="button"
+                        onClick={item.onClick}
                         className={`w-11 h-6 rounded-full transition-all relative ${isDarkMode ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-600'}`}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isDarkMode ? 'left-6' : 'left-1'}`} />
