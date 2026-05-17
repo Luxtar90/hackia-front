@@ -84,7 +84,7 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
           label: t.darkMode, 
           value: isDarkMode ? t.on : t.off, 
           type: 'toggle',
-          action: toggleDarkMode 
+          onClick: toggleDarkMode,
         },
       ]
     }
@@ -143,7 +143,8 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
                       </button>
                     ) : (
                       <button 
-                        onClick={(item as any).onClick}
+                        type="button"
+                        onClick={item.onClick}
                         className="p-2 text-slate-300 hover:text-teal-600 transition-colors"
                       >
                         <ChevronRight size={18} />

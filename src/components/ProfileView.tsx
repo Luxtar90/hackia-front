@@ -31,7 +31,6 @@ export function ProfileView({ isSidebarOpen, setIsSidebarOpen, onBack }: Profile
   };
 
   const t = translations[language].profile;
-  const common = translations[language].common;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">

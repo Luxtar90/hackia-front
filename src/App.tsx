@@ -11,7 +11,7 @@ import { useAppStore } from './store/useAppStore'
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState('chat');
-  const { isDarkMode, createNewSession, sessions, isAuthenticated, fetchSessions, currentSessionId, setCurrentSession } = useAppStore();
+  const { isDarkMode, createNewSession, isAuthenticated, fetchSessions, setCurrentSession } = useAppStore();
 
   // Initialize and fetch remote history sequentially
   useEffect(() => {

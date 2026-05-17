@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Hospital as HospitalIcon, Menu, MapPin, Check, Loader2, Phone, ExternalLink } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -152,6 +152,7 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
     setSelectedHospital,
     setMapCenter,
     setUserLocation,
+    userLocation,
     user,
     language,
   } = useAppStore();
@@ -211,10 +212,14 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
     setProgressSteps([]);
 
     try {
+      const rawConvId = currentSession?.conversationId;
+      const conversationForApi =
+        rawConvId && !rawConvId.startsWith('new-') ? rawConvId : undefined;
+
       const response = await chatApi.sendMessage(
         currentInput,
         customerId || undefined,
-        currentSession?.conversationId?.startsWith('new-') ? undefined : currentSession?.conversationId,
+        conversationForApi,
         geo ? { latitude: geo.latitude, longitude: geo.longitude } : undefined,
         (event) => setProgressSteps((prev) => [...prev, event]),
       );

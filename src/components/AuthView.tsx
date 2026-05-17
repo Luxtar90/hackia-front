@@ -15,7 +15,6 @@ export function AuthView() {
   const { language } = useAppStore();
 
   const t = translations[language].auth;
-  const common = translations[language].common;
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();

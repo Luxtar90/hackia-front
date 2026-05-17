@@ -154,7 +154,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
                   <p className="text-sm font-bold">{coverageData.nombreCompleto || 'N/A'}</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.deducible}</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-teal-200">{t.deductible}</p>
                   <p className="text-sm font-bold">${coverageData.plan.deducibleAnual || '0'}</p>
                 </div>
               </div>
