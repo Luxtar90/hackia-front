@@ -86,3 +86,42 @@ body {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #1E293B;
 }
+
+/* Leaflet (hospitales): tooltip legible; Leaflet default usa white-space:nowrap y sin ancho → a veces una letra por línea */
+.leaflet-tooltip.hospitals-leaflet-tooltip {
+  box-sizing: border-box;
+  max-width: min(92vw, 280px) !important;
+  width: max-content !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+}
+
+.leaflet-tooltip.hospitals-leaflet-tooltip .hackia-leaflet-tip-inner {
+  display: block;
+  width: max-content;
+  max-width: min(calc(92vw - 24px), 260px);
+  min-width: 0;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word;
+  writing-mode: horizontal-tb !important;
+}
+
+.dark .leaflet-tooltip.hospitals-leaflet-tooltip {
+  background: rgba(30, 41, 59, 0.96);
+  color: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.dark .leaflet-tooltip.hospitals-leaflet-tooltip.leaflet-tooltip-top:before {
+  border-top-color: rgba(30, 41, 59, 0.96);
+}

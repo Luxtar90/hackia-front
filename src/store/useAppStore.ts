@@ -330,6 +330,8 @@ export const useAppStore = create<AppState>()(
         // Hybrid: Persistimos sesiones para carga instantánea, pero se sincronizan con Notion
         sessions: state.sessions,
         currentSessionId: state.currentSessionId,
+        /** Evita modo catálogo tras F5: sin coords persistidas el primer fetch iba sin GPS → solo maestro Notion (“todos en red”). */
+        userLocation: state.userLocation,
         isDarkMode: state.isDarkMode,
         language: state.language,
         isAuthenticated: state.isAuthenticated,

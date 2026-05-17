@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ChatInterface } from './components/ChatInterface'
 import { InsuranceView } from './components/InsuranceView'
@@ -8,10 +8,43 @@ import { ProfileView } from './components/ProfileView'
 import { AuthView } from './components/AuthView'
 import { useAppStore } from './store/useAppStore'
 
+const APP_VIEWS = ['chat', 'hospitals', 'insurance', 'settings', 'profile'] as const
+type AppView = (typeof APP_VIEWS)[number]
+
+function coerceAppView(view: string): AppView {
+  return (APP_VIEWS as readonly string[]).includes(view) ? (view as AppView) : 'chat'
+}
+
+function viewFromHash(hash: string): AppView {
+  const segment = hash.replace(/^#\/?/, '').split('/')[0]?.trim() ?? ''
+  return coerceAppView(segment || 'chat')
+}
+
+function hashForView(view: AppView): string {
+  return `#/${view}`
+}
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState('chat');
+  const [activeView, setActiveView] = useState<AppView>(() =>
+    typeof window !== 'undefined' ? viewFromHash(window.location.hash) : 'chat',
+  );
   const { isDarkMode, createNewSession, isAuthenticated, fetchSessions, setCurrentSession } = useAppStore();
+
+  const navigateView = useCallback((view: string) => {
+    const next = coerceAppView(view)
+    setActiveView(next)
+    const h = hashForView(next)
+    if (window.location.hash !== h) {
+      window.location.hash = h
+    }
+  }, [])
+
+  useEffect(() => {
+    const onHashChange = () => setActiveView(viewFromHash(window.location.hash))
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   // Initialize and fetch remote history sequentially
   useEffect(() => {
@@ -55,7 +88,7 @@ function App() {
           <ChatInterface
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
-            onOpenHospitals={() => setActiveView('hospitals')}
+            onOpenHospitals={() => navigateView('hospitals')}
           />
         );
       case 'hospitals':
@@ -67,17 +100,17 @@ function App() {
           <SettingsView 
             isSidebarOpen={isSidebarOpen} 
             setIsSidebarOpen={setIsSidebarOpen} 
-            onOpenProfile={() => setActiveView('profile')}
+            onOpenProfile={() => navigateView('profile')}
           />
         );
       case 'profile':
-        return <ProfileView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} onBack={() => setActiveView('settings')} />;
+        return <ProfileView isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} onBack={() => navigateView('settings')} />;
       default:
         return (
           <ChatInterface
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
-            onOpenHospitals={() => setActiveView('hospitals')}
+            onOpenHospitals={() => navigateView('hospitals')}
           />
         );
     }
@@ -89,9 +122,9 @@ function App() {
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
         activeView={activeView}
-        setActiveView={setActiveView}
+        setActiveView={navigateView}
       />
-      <main className="flex-1 h-full overflow-hidden relative flex flex-col">
+      <main className="flex-1 h-full min-h-0 overflow-hidden relative flex flex-col">
         {renderActiveView()}
       </main>
     </div>

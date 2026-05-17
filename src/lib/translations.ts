@@ -127,6 +127,14 @@ export const translations = {
       legendDesc: 'Los números en círculo teal agrupan varios centros: tócalos para desplegarlos. En cada pin: icono de hospital; $ copago ref., × fuera de red, ~ sin dato de copago.',
       inNetworkLegend: 'En tu red (con cobertura)',
       outNetworkLegend: 'Fuera de tu red (sin cobertura del plan)',
+      listPagePrev: 'Anterior',
+      listPageNext: 'Siguiente',
+      listShowing: (from: number, to: number, total: number) => `${from}–${to} de ${total}`,
+      listPageStatus: (page: number, totalPages: number) => `Página ${page} de ${totalPages}`,
+      splitResize: 'Arrastra para dar más espacio a la lista o al mapa',
+      splitResetHint: 'Doble clic: volver al reparto por defecto (mapa más grande)',
+      listTotalHint: (n: number) =>
+        n === 1 ? '1 centro en la lista' : `${n} centros · desplázate en la lista para ver todos`,
     },
     settings: {
       title: 'Configuración',
@@ -284,6 +292,14 @@ export const translations = {
       legendDesc: 'Numbers in teal circles group several centers: tap to expand. On each pin: hospital icon; $ ref. copay, × out of network, ~ no copay data.',
       inNetworkLegend: 'In your network (covered)',
       outNetworkLegend: 'Out of your network (no plan coverage)',
+      listPagePrev: 'Previous',
+      listPageNext: 'Next',
+      listShowing: (from: number, to: number, total: number) => `${from}–${to} of ${total}`,
+      listPageStatus: (page: number, totalPages: number) => `Page ${page} of ${totalPages}`,
+      splitResize: 'Drag to give more space to the list or the map',
+      splitResetHint: 'Double-click: reset split (larger map by default)',
+      listTotalHint: (n: number) =>
+        n === 1 ? '1 center in the list' : `${n} centers · scroll the list to see them all`,
     },
     settings: {
       title: 'Settings',

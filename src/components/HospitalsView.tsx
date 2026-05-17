@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { MapPin, Navigation, Phone, Star, Search, Menu, Loader } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MapPin, Navigation, Phone, Star, Search, Menu, Loader, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { hospitalApi } from '../lib/api';
 import { useAppStore, type SelectedHospital } from '../store/useAppStore';
@@ -66,9 +66,15 @@ function normalizeHospitalRow(h: Record<string, unknown>): Hospital {
   const dist = h.distancia;
   const distancia =
     typeof dist === 'number' && Number.isFinite(dist) ? dist : undefined;
-  /** API envía false explícito para OSM; true para Notion; si falta el campo, asumimos maestro con cobertura. */
-  const tieneCobertura =
-    h.tieneCobertura === false ? false : h.tieneCobertura === true ? true : true;
+  const idStr = typeof h.id === 'string' ? h.id : '';
+  const fromOsm =
+    h.fuente === 'openstreetmap' || idStr.startsWith('osm-');
+  /** API envía false explícito para OSM; true para Notion; si falta el campo, maestro Notion = en red. */
+  const tieneCobertura = fromOsm
+    ? false
+    : h.tieneCobertura === false || h.tieneCobertura === 'false'
+      ? false
+      : true;
 
   const rawCartera = h.carteraServicios;
   const carteraServicios = Array.isArray(rawCartera)
@@ -96,6 +102,9 @@ function normalizeHospitalRow(h: Record<string, unknown>): Hospital {
 const DEFAULT_RADIUS_KM = 50;
 const MIN_RADIUS_KM = 5;
 const MAX_RADIUS_KM = 150;
+const LIST_PAGE_SIZE_MOBILE = 10;
+/** En escritorio menos ítems por página + tarjetas compactas = columna menos alta. */
+const LIST_PAGE_SIZE_DESKTOP = 5;
 
 type CoverageFilter = 'all' | 'covered' | 'uncovered';
 
@@ -108,6 +117,26 @@ const MAP_OVERLAY_CARD =
 /** Espacio inferior reservado para logo / datos del mapa / términos del iframe de Google */
 const MAP_CHROME_BOTTOM =
   'pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]';
+
+/** Lista vs mapa en escritorio: valor guardado en localStorage; por defecto el mapa ocupa más que la lista. */
+const SPLIT_STORAGE_KEY = 'hackia-hospitals-list-fraction';
+const SPLIT_DEFAULT_FRAC = 0.36;
+const SPLIT_MIN_FRAC = 0.26;
+const SPLIT_MAX_FRAC = 0.56;
+
+function readStoredListFraction(): number {
+  if (typeof window === 'undefined') return SPLIT_DEFAULT_FRAC;
+  try {
+    const raw = localStorage.getItem(SPLIT_STORAGE_KEY);
+    const n = raw ? Number.parseFloat(raw) : NaN;
+    if (Number.isFinite(n)) {
+      return Math.min(SPLIT_MAX_FRAC, Math.max(SPLIT_MIN_FRAC, n));
+    }
+  } catch {
+    /* ignore */
+  }
+  return SPLIT_DEFAULT_FRAC;
+}
 
 function embedMapUrl(activeHospital: Hospital | null, userCenter: { latitude: number; longitude: number } | null): string {
   if (activeHospital) {
@@ -129,6 +158,20 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS_KM);
+  const [listPage, setListPage] = useState(1);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const splitDragRef = useRef(false);
+  const listFracRef = useRef(readStoredListFraction());
+  const [listPanelFraction, setListPanelFraction] = useState(() => readStoredListFraction());
+  const [listPageSize, setListPageSize] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+      ? LIST_PAGE_SIZE_DESKTOP
+      : LIST_PAGE_SIZE_MOBILE,
+  );
+  const [isDesktopSplitLayout, setIsDesktopSplitLayout] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  );
   const { selectedHospital, setSelectedHospital, setMapCenter, userLocation, customerId, language } = useAppStore();
 
   const t = translations[language].hospitals;
@@ -145,11 +188,62 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
   }, []);
 
   useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const apply = () => {
+      const desktop = mq.matches;
+      setIsDesktopSplitLayout(desktop);
+      setListPageSize(desktop ? LIST_PAGE_SIZE_DESKTOP : LIST_PAGE_SIZE_MOBILE);
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  const applyListFraction = useCallback((frac: number) => {
+    const clamped = Math.min(SPLIT_MAX_FRAC, Math.max(SPLIT_MIN_FRAC, frac));
+    listFracRef.current = clamped;
+    setListPanelFraction(clamped);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!splitDragRef.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const x = e.clientX - rect.left;
+      applyListFraction(x / rect.width);
+    };
+    const endDrag = () => {
+      if (!splitDragRef.current) return;
+      splitDragRef.current = false;
+      try {
+        localStorage.setItem(SPLIT_STORAGE_KEY, String(listFracRef.current));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+    };
+  }, [applyListFraction]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, coverageFilter, nearbyHospitals, listPageSize]);
+
+  useEffect(() => {
     if (!storageReady) return;
 
     let cancelled = false;
 
     const load = async () => {
+      /** Guardamos GPS aquí y persistimos en el store al terminar la carga (evita setUserLocation a mitad del efecto → re-ejecución → cancelación). */
+      let pendingPersistGeo: { latitude: number; longitude: number } | null = null;
       try {
         setLoading(true);
         setError(null);
@@ -170,10 +264,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                 if (n) {
                   lat = n.latitude;
                   lng = n.longitude;
-                  useAppStore.getState().setUserLocation({
-                    latitude: n.latitude,
-                    longitude: n.longitude,
-                  });
+                  pendingPersistGeo = n;
                 }
                 resolve();
               },
@@ -205,6 +296,9 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
         console.error('Error fetching hospitals:', err);
         if (!cancelled) setError(t.loadingHospitals);
       } finally {
+        if (!cancelled && pendingPersistGeo) {
+          useAppStore.getState().setUserLocation(pendingPersistGeo);
+        }
         if (!cancelled) setLoading(false);
       }
     };
@@ -232,6 +326,18 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
     if (coverageFilter === 'covered') return h.tieneCobertura !== false;
     return h.tieneCobertura === false;
   });
+
+  const totalListCount = listHospitals.length;
+  const totalListPages = Math.max(1, Math.ceil(totalListCount / listPageSize));
+  const effectiveListPage = Math.min(Math.max(1, listPage), totalListPages);
+  const listPageStart = (effectiveListPage - 1) * listPageSize;
+  const paginatedListHospitals = listHospitals.slice(listPageStart, listPageStart + listPageSize);
+  const listRangeFrom = totalListCount === 0 ? 0 : listPageStart + 1;
+  const listRangeTo = Math.min(listPageStart + listPageSize, totalListCount);
+
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [effectiveListPage, listPageSize]);
 
   const selectedHospitalFromList = selectedHospital
     ? listHospitals.find((hospital) => hospital.id === selectedHospital.id || hospital.nombre === selectedHospital.nombre) || null
@@ -276,7 +382,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 h-full bg-white dark:bg-slate-900 overflow-y-auto overscroll-y-contain lg:overflow-hidden">
       {/* Header */}
       <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
         {!isSidebarOpen && (
@@ -297,10 +403,27 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Sidebar: List of Hospitals */}
-        <div className="w-full lg:w-96 border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-4">
+      <div
+        ref={splitContainerRef}
+        className="flex flex-col-reverse lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden w-full shrink-0 lg:shrink"
+      >
+        {/* Sidebar: filtros + lista (en móvil va debajo del mapa por flex-col-reverse) */}
+        <div
+          className={cn(
+            'w-full border-t border-slate-100 dark:border-slate-800 lg:border-t-0 lg:border-r lg:border-slate-100 lg:dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 lg:min-h-0 lg:overflow-hidden shrink-0',
+            !isDesktopSplitLayout && 'lg:flex-1',
+          )}
+          style={
+            isDesktopSplitLayout
+              ? {
+                  flex: `0 0 ${listPanelFraction * 100}%`,
+                  minWidth: 260,
+                  maxWidth: `${SPLIT_MAX_FRAC * 100}%`,
+                }
+              : undefined
+          }
+        >
+          <div className="shrink-0 p-4 border-b border-slate-100 dark:border-slate-800 space-y-4">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={16} />
               <input 
@@ -387,10 +510,24 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               )}
             </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+
+          {!showSpinner && !error && totalListCount > 0 && (
+            <p className="shrink-0 border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-[10px] font-semibold leading-snug text-slate-500 dark:text-slate-400">
+              {t.listTotalHint(totalListCount)}
+            </p>
+          )}
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:w-full">
+          <div
+            ref={listScrollRef}
+            className={cn(
+              'custom-scrollbar space-y-4 overflow-x-hidden touch-pan-y overscroll-y-contain px-4 py-3 lg:space-y-2 lg:p-3',
+              'max-lg:overflow-visible max-lg:flex-none',
+              'min-h-0 lg:flex-1 lg:overflow-y-scroll lg:overscroll-y-contain',
+            )}
+          >
             {showSpinner ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center min-h-[200px] lg:h-full py-12">
                 <div className="text-center">
                   <Loader className="animate-spin text-teal-600 mx-auto mb-2" size={32} />
                   <p className="text-sm text-slate-500 dark:text-slate-400">{t.loadingHospitals}</p>
@@ -419,19 +556,20 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                 </p>
               </div>
             ) : (
-              listHospitals.map((hospital, idx) => (
+              paginatedListHospitals.map((hospital, idx) => (
                 <div 
-                  key={hospital.id || idx} 
+                  key={hospital.id ?? `${listPageStart + idx}-${hospital.nombre}`} 
                   onClick={() => handleSelectHospital(hospital)}
                   className={cn(
-                    "bg-white dark:bg-slate-800 p-4 rounded-[24px] border shadow-sm hover:shadow-md transition-all cursor-pointer group",
+                    'bg-white dark:bg-slate-800 p-4 rounded-[24px] border shadow-sm hover:shadow-md transition-all cursor-pointer group',
+                    'lg:p-3 lg:rounded-xl lg:shadow-sm',
                     (selectedHospital?.id && hospital.id === selectedHospital.id) || selectedHospital?.nombre === hospital.nombre
                       ? "border-teal-400 ring-2 ring-teal-500/20"
                       : "border-slate-100 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-500"
                   )}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                  <div className="flex justify-between items-start gap-2 mb-2 lg:mb-1">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm lg:text-[13px] leading-snug min-w-0 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                       {hospital.nombre}
                     </h4>
                     {hospital.tieneCobertura !== false ? (
@@ -444,11 +582,11 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-3">
-                    <MapPin size={12} /> {hospitalLocationLine(hospital)}
+                  <p className="text-xs lg:text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mb-3 lg:mb-1.5 lg:line-clamp-2 leading-snug">
+                    <MapPin size={12} className="shrink-0 mt-0.5 lg:scale-90" /> {hospitalLocationLine(hospital)}
                   </p>
                   {(hospital.carteraServicios?.length ?? 0) > 0 && (
-                    <div className="mb-3 flex flex-wrap items-center gap-1">
+                    <div className="mb-3 lg:hidden flex flex-wrap items-center gap-1">
                       <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 w-full mb-0.5">
                         {t.portfolioTitle}
                       </span>
@@ -467,39 +605,40 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
                       )}
                     </div>
                   )}
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <Star size={12} className="text-yellow-400 fill-yellow-400" /> {hospital.rating?.toFixed(1) || '4.5'}
+                  <div className="flex items-center gap-4 lg:gap-3 mb-4 lg:mb-2 flex-wrap">
+                    <div className="flex items-center gap-1 text-[11px] lg:text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                      <Star size={12} className="text-yellow-400 fill-yellow-400 lg:scale-90" />{' '}
+                      {hospital.rating?.toFixed(1) || '4.5'}
                     </div>
-                    <div className="text-[11px] font-bold text-slate-400">
+                    <div className="text-[11px] lg:text-[10px] font-bold text-slate-400">
                       {hospital.distancia ? `${hospital.distancia.toFixed(1)} km` : 'Distancia N/A'}
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-green-500">
+                    <div className="text-[11px] lg:text-[10px] font-bold uppercase tracking-wider text-green-500">
                       {t.open}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 lg:gap-1.5">
                     <button
                       type="button"
-                      className="flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-teal-600 hover:text-white transition-all"
+                      className="flex items-center justify-center gap-2 lg:gap-1 py-2 lg:py-1.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl lg:rounded-lg text-[11px] lg:text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-teal-600 hover:text-white transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
                         window.open(buildGoogleDirectionsUrl(hospital, userLocation), '_blank', 'noopener,noreferrer');
                       }}
                     >
-                      <Navigation size={12} /> {t.howToGet}
+                      <Navigation size={12} className="lg:w-3 lg:h-3" /> {t.howToGet}
                     </button>
                     {hospital.telefono ? (
                       <a
                         href={`tel:${hospital.telefono}`}
-                        className="flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                        className="flex items-center justify-center gap-2 lg:gap-1 py-2 lg:py-1.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl lg:rounded-lg text-[11px] lg:text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Phone size={12} /> {t.call}
+                        <Phone size={12} className="lg:w-3 lg:h-3" /> {t.call}
                       </a>
                     ) : (
-                      <span className="flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-700/30 rounded-xl text-[11px] font-bold text-slate-400 cursor-not-allowed">
-                        <Phone size={12} /> {t.call}
+                      <span className="flex items-center justify-center gap-2 lg:gap-1 py-2 lg:py-1.5 bg-slate-50 dark:bg-slate-700/30 rounded-xl lg:rounded-lg text-[11px] lg:text-[10px] font-bold text-slate-400 cursor-not-allowed">
+                        <Phone size={12} className="lg:w-3 lg:h-3" /> {t.call}
                       </span>
                     )}
                   </div>
@@ -507,11 +646,76 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               ))
             )}
           </div>
+
+          {!showSpinner && !error && totalListCount > 0 && totalListPages > 1 && (
+            <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 px-3 py-3 lg:py-2 space-y-2 lg:space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                <span>{t.listShowing(listRangeFrom, listRangeTo, totalListCount)}</span>
+                <span className="truncate">{t.listPageStatus(effectiveListPage, totalListPages)}</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  disabled={effectiveListPage <= 1}
+                  onClick={() => setListPage(Math.max(1, effectiveListPage - 1))}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-bold transition-colors border',
+                    effectiveListPage <= 1
+                      ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-300',
+                  )}
+                >
+                  <ChevronLeft size={14} /> {t.listPagePrev}
+                </button>
+                <button
+                  type="button"
+                  disabled={effectiveListPage >= totalListPages}
+                  onClick={() => setListPage(Math.min(totalListPages, effectiveListPage + 1))}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-bold transition-colors border',
+                    effectiveListPage >= totalListPages
+                      ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-300',
+                  )}
+                >
+                  {t.listPageNext} <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+          </div>
         </div>
 
-        {/* Mapa: contenedor con altura mínima para que el iframe absolute no colapse en flex */}
-        <div className="flex flex-1 flex-col min-h-[38vh] lg:min-h-0 bg-slate-200/80 dark:bg-slate-950">
-          <div className="relative flex-1 min-h-[280px] m-1.5 md:m-2 rounded-xl md:rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-inner bg-slate-100 dark:bg-slate-900">
+        <button
+          type="button"
+          className={cn(
+            'hidden lg:flex w-3 shrink-0 items-center justify-center self-stretch cursor-col-resize touch-none select-none',
+            'border-r border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40',
+            'hover:bg-teal-500/10 active:bg-teal-500/[0.18]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:ring-inset',
+          )}
+          aria-label={t.splitResize}
+          title={`${t.splitResize}. ${t.splitResetHint}`}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            splitDragRef.current = true;
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            applyListFraction(SPLIT_DEFAULT_FRAC);
+            try {
+              localStorage.setItem(SPLIT_STORAGE_KEY, String(listFracRef.current));
+            } catch {
+              /* ignore */
+            }
+          }}
+        >
+          <GripVertical className="h-8 w-4 text-slate-400 pointer-events-none" strokeWidth={2} aria-hidden />
+        </button>
+
+        {/* Mapa: en móvil altura fija + scroll de página; en lg ocupa el resto del viewport */}
+        <div className="flex w-full shrink-0 flex-col h-[min(46vh,420px)] min-h-[260px] lg:min-h-0 lg:h-auto lg:flex-1 lg:min-w-0 bg-slate-200/80 dark:bg-slate-950">
+          <div className="relative flex-1 min-h-[220px] m-1.5 md:m-2 rounded-xl md:rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-inner bg-slate-100 dark:bg-slate-900 isolate touch-manipulation [&_.leaflet-container]:touch-pan-x [&_.leaflet-container]:touch-pan-y lg:min-h-[280px]">
             {canInteractiveMap ? (
               <HospitalsLeafletMap
                 userCenter={userMapCenter}
@@ -535,7 +739,7 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
 
             <div
               className={cn(
-                'pointer-events-none absolute inset-0 z-10 flex flex-col pt-2 px-2 md:pt-3 md:px-3',
+                'pointer-events-none absolute inset-0 z-10 hidden lg:flex lg:flex-col pt-2 px-2 md:pt-3 md:px-3',
                 MAP_CHROME_BOTTOM,
               )}
             >
@@ -638,6 +842,46 @@ export function HospitalsView({ isSidebarOpen, setIsSidebarOpen }: HospitalsView
               </div>
             </div>
           </div>
+        </div>
+
+          {/* Móvil: leyenda y acciones fuera del mapa para no tapar tiles ni gestos */}
+          <div className="lg:hidden shrink-0 space-y-2 px-2 pb-2 pt-1">
+            {activeHospital && (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 px-3 py-2 shadow-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide truncate">{t.recommended}</p>
+                  <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{activeHospital.nombre}</p>
+                </div>
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-[11px] font-bold text-white"
+                >
+                  <Navigation size={12} /> {t.openMaps}
+                </a>
+              </div>
+            )}
+            <div className="rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{t.legend}</p>
+              {canInteractiveMap && (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 leading-snug">{t.legendDesc}</p>
+              )}
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-teal-600 shrink-0" />
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 leading-tight">
+                    {t.inNetworkLegend}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 leading-tight">
+                    {t.outNetworkLegend}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
