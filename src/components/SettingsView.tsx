@@ -166,7 +166,7 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
               {t.deleteAccount}
             </button>
             <p className="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-widest">
-              Estimador Agéntico v1.0.4
+              WellWay v1.0.0
             </p>
           </div>
         </div>
