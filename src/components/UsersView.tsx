@@ -449,7 +449,7 @@ export function UsersView({ isSidebarOpen, setIsSidebarOpen }: UsersViewProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         {loading ? (
           <div className="flex items-center justify-center h-48 gap-3 text-slate-400">
             <Loader size={20} className="animate-spin" />
@@ -462,96 +462,162 @@ export function UsersView({ isSidebarOpen, setIsSidebarOpen }: UsersViewProps) {
             {isES ? 'No hay usuarios registrados' : 'No users found'}
           </div>
         ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                  {[
-                    isES ? 'Nombre' : 'Name',
-                    'Email',
-                    isES ? 'Rol' : 'Role',
-                    isES ? 'Estado' : 'Status',
-                    isES ? 'Pacientes' : 'Patients',
-                    isES ? 'Opciones' : 'Options',
-                  ].map((h) => (
-                    <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      {h}
-                    </th>
+          <div className="space-y-4">
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    {[
+                      isES ? 'Nombre' : 'Name',
+                      'Email',
+                      isES ? 'Rol' : 'Role',
+                      isES ? 'Estado' : 'Status',
+                      isES ? 'Pacientes' : 'Patients',
+                      isES ? 'Opciones' : 'Options',
+                    ].map((h) => (
+                      <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user, i) => (
+                    <tr
+                      key={user.id}
+                      className={cn(
+                        'border-b border-slate-50 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors',
+                        i % 2 !== 0 && 'bg-slate-50/50 dark:bg-slate-800/10'
+                      )}
+                    >
+                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                        {user.nombre || '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
+                        {user.email}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className={cn(
+                          'inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide',
+                          user.rol === 'admin'
+                            ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
+                            : user.rol === 'patient'
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        )}>
+                          {user.rol}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {user.activo ? (
+                          <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-semibold text-xs whitespace-nowrap">
+                            <CheckCircle size={14} />
+                            {isES ? 'Activo' : 'Active'}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-slate-400 font-semibold text-xs whitespace-nowrap">
+                            <XCircle size={14} />
+                            {isES ? 'Inactivo' : 'Inactive'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
+                        {user.pacientes?.length ?? 0}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setEditUser(user)}
+                            title={isES ? 'Editar usuario' : 'Edit user'}
+                            className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => setCreatePatientUser(user)}
+                            title={isES ? 'Crear paciente' : 'Create patient'}
+                            className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
+                          >
+                            <UserPlus size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user, i) => (
-                  <tr
-                    key={user.id}
-                    className={cn(
-                      'border-b border-slate-50 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors',
-                      i % 2 !== 0 && 'bg-slate-50/50 dark:bg-slate-800/10'
-                    )}
-                  >
-                    <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                      {user.nombre || '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
-                      {user.email}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={cn(
-                        'inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide',
-                        user.rol === 'admin'
-                          ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
-                          : user.rol === 'patient'
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                      )}>
-                        {user.rol}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {users.map((user) => (
+                <div 
+                  key={user.id} 
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm space-y-4"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="overflow-hidden">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {user.nombre || '—'}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
+                    </div>
+                    <span className={cn(
+                      'px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wide shrink-0',
+                      user.rol === 'admin'
+                        ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
+                        : user.rol === 'patient'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                    )}>
+                      {user.rol}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-50 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
                       {user.activo ? (
-                        <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-semibold text-xs whitespace-nowrap">
+                        <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-semibold">
                           <CheckCircle size={14} />
                           {isES ? 'Activo' : 'Active'}
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-slate-400 font-semibold text-xs whitespace-nowrap">
+                        <span className="flex items-center gap-1.5 text-slate-400 font-semibold">
                           <XCircle size={14} />
                           {isES ? 'Inactivo' : 'Inactive'}
                         </span>
                       )}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
-                      {user.pacientes?.length ?? 0}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setEditUser(user)}
-                          title={isES ? 'Editar usuario' : 'Edit user'}
-                          className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => setCreatePatientUser(user)}
-                          title={isES ? 'Crear paciente' : 'Create patient'}
-                          className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
-                        >
-                          <UserPlus size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span className="text-slate-400 font-medium">
+                        {user.pacientes?.length ?? 0} {isES ? 'Pacientes' : 'Patients'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditUser(user)}
+                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-teal-600 transition-all"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => setCreatePatientUser(user)}
+                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-teal-600 transition-all"
+                      >
+                        <UserPlus size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {hasMore && (
-              <div className="flex justify-center p-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-center pt-2">
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50"
                 >
                   {loadingMore ? <Loader size={14} className="animate-spin" /> : <ChevronDown size={14} />}
                   {isES ? 'Cargar más' : 'Load more'}

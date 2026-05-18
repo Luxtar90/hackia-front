@@ -27,25 +27,45 @@ function hashForView(view: AppView): string {
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState<AppView>(() =>
-    typeof window !== 'undefined' ? viewFromHash(window.location.hash) : 'chat',
-  );
-  const { isDarkMode, createNewSession, isAuthenticated, fetchSessions, setCurrentSession } = useAppStore();
+  const { isDarkMode, createNewSession, isAuthenticated, fetchSessions, setCurrentSession, user } = useAppStore();
+  const isAdmin = user.role === 'admin';
+
+  const [activeView, setActiveView] = useState<AppView>(() => {
+    if (typeof window === 'undefined') return 'chat';
+    const requestedView = viewFromHash(window.location.hash);
+    if (requestedView === 'users' && user.role !== 'admin') return 'chat';
+    if (requestedView === 'insurance' && user.role === 'admin') return 'chat';
+    return requestedView;
+  });
 
   const navigateView = useCallback((view: string) => {
-    const next = coerceAppView(view)
-    setActiveView(next)
-    const h = hashForView(next)
+    let next = coerceAppView(view);
+    
+    // Protect routes
+    if (next === 'users' && user.role !== 'admin') next = 'chat';
+    if (next === 'insurance' && user.role === 'admin') next = 'chat';
+    
+    setActiveView(next);
+    const h = hashForView(next);
     if (window.location.hash !== h) {
-      window.location.hash = h
+      window.location.hash = h;
     }
-  }, [])
+  }, [user.role]);
 
   useEffect(() => {
-    const onHashChange = () => setActiveView(viewFromHash(window.location.hash))
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
+    const onHashChange = () => {
+      const requestedView = viewFromHash(window.location.hash);
+      if (requestedView === 'users' && user.role !== 'admin') {
+        navigateView('chat');
+      } else if (requestedView === 'insurance' && user.role === 'admin') {
+        navigateView('chat');
+      } else {
+        setActiveView(requestedView);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [user.role, navigateView]);
 
   // Initialize and fetch remote history sequentially
   useEffect(() => {

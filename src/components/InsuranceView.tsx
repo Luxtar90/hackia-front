@@ -3,6 +3,8 @@ import { Shield, CreditCard, CheckCircle, Info, Download, Menu, Loader } from 'l
 import { useAppStore } from '../store/useAppStore';
 import { customerApi } from '../lib/api';
 import { translations } from '../lib/translations';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface InsuranceViewProps {
   isSidebarOpen: boolean;
@@ -37,6 +39,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
   const [coverageData, setCoverageData] = useState<CoverageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const t = translations[language].insurance;
 
@@ -68,12 +71,128 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
     fetchCoverage();
   }, [customerId, language]);
 
+  const handleDownloadPDF = () => {
+    if (!coverageData) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // -- Professional Header --
+      doc.setFillColor(13, 148, 136); // Teal 600
+      doc.rect(0, 0, pageWidth, 40, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('WellWay', 20, 20);
+
+      doc.setFontSize(10);
+      doc.text(t.pdfTitle, pageWidth - 20, 20, { align: 'right' });
+      doc.setFontSize(8);
+      doc.text(`${t.pdfGenerationDate}: ${new Date().toLocaleDateString()}`, pageWidth - 20, 28, { align: 'right' });
+
+      // -- Section: Insured Data --
+      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.pdfPersonalData, 20, 55);
+
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.line(20, 58, pageWidth - 20, 58);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.holder}:`, 20, 68);
+      doc.setFont('helvetica', 'bold');
+      doc.text(coverageData.nombreCompleto || 'N/A', 60, 68);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.policy}:`, 20, 75);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`#${coverageData.numeroPoliza}`, 60, 75);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.status}:`, 20, 82);
+      doc.setTextColor(13, 148, 136);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.active, 60, 82);
+
+      // -- Section: Plan Details --
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.pdfPlanInfo, 20, 100);
+      doc.line(20, 103, pageWidth - 20, 103);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.pdfInsuranceCo}:`, 20, 113);
+      doc.setFont('helvetica', 'bold');
+      doc.text(coverageData.plan.aseguradora, 60, 113);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.pdfPlanType}:`, 20, 120);
+      doc.setFont('helvetica', 'bold');
+      doc.text(coverageData.plan.tipoPlan, 60, 120);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.pdfDeductible}:`, 20, 127);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`$${coverageData.plan.deducibleAnual || 0}`, 60, 127);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${t.pdfCoaseguro}:`, 20, 134);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${coverageData.plan.coaseguroPct || 0}%`, 60, 134);
+
+      // -- Section: Benefits Table --
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.benefitsDetail, 20, 150);
+
+      const tableData = coverageData.coberturas.map(c => [
+        c.especialidad,
+        `$${c.copagoFijo || 0}`,
+        c.coaseguroOverride ? `${c.coaseguroOverride}%` : t.standard,
+        c.cubierto ? t.covered : t.notCovered
+      ]);
+
+      autoTable(doc, {
+        startY: 155,
+        head: [[t.specialty, t.fixedCopay, t.coinsurance, t.status]],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [13, 148, 136], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        margin: { left: 20, right: 20 },
+      });
+
+      // -- Footer: Legal Notice --
+      const finalY = (doc as any).lastAutoTable?.finalY || 155;
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139); // Slate 500
+      const splitNotice = doc.splitTextToSize(translations[language].chat.legalNotice, pageWidth - 40);
+      doc.text(splitNotice, 20, finalY + 15);
+
+      // Save the PDF
+      doc.save(`Cobertura_WellWay_${coverageData.numeroPoliza}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert(language === 'Español' ? 'Error al generar el PDF. Revisa la consola.' : 'Error generating PDF. Check console.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
         <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
           {!isSidebarOpen && (
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
@@ -97,7 +216,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
       <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
         <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
           {!isSidebarOpen && (
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
@@ -122,7 +241,7 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
       {/* Integrated Header */}
       <header className="h-[65px] px-4 md:px-6 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20 shrink-0">
         {!isSidebarOpen && (
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
@@ -167,8 +286,17 @@ export function InsuranceView({ isSidebarOpen, setIsSidebarOpen }: InsuranceView
               <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <CreditCard className="text-teal-600" size={20} /> {t.benefitsDetail}
               </h3>
-              <button className="text-xs font-bold text-teal-600 flex items-center gap-1 hover:underline">
-                <Download size={14} /> {t.downloadPDF}
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+                className="text-xs font-bold text-teal-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+              >
+                {isGeneratingPDF ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                {t.downloadPDF}
               </button>
             </div>
             <div className="overflow-x-auto">

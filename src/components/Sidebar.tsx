@@ -131,18 +131,20 @@ export function Sidebar({ isOpen, setIsOpen, activeView, setActiveView }: Sideba
                 {isOpen && <span className="animate-in fade-in duration-500">{t.hospitals}</span>}
               </button>
               
-              <button
-                onClick={() => handleViewChange('insurance')}
-                className={cn(
-                  "w-full flex items-center text-sm font-semibold rounded-xl transition-all group",
-                  activeView === 'insurance' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50",
-                  isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
-                )}
-                title={isAdmin ? t.insuranceAdmin : t.insurance}
-              >
-                <CreditCard size={18} className={cn("shrink-0", activeView === 'insurance' ? "text-teal-600" : "text-slate-400 group-hover:text-teal-500")} />
-                {isOpen && <span className="animate-in fade-in duration-500 whitespace-nowrap">{isAdmin ? t.insuranceAdmin : t.insurance}</span>}
-              </button>
+              {!isAdmin && (
+                <button
+                  onClick={() => handleViewChange('insurance')}
+                  className={cn(
+                    "w-full flex items-center text-sm font-semibold rounded-xl transition-all group",
+                    activeView === 'insurance' ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50",
+                    isOpen ? "gap-3 px-3 py-2.5" : "px-0 py-2.5 justify-center"
+                  )}
+                  title={isAdmin ? t.insuranceAdmin : t.insurance}
+                >
+                  <CreditCard size={18} className={cn("shrink-0", activeView === 'insurance' ? "text-teal-600" : "text-slate-400 group-hover:text-teal-500")} />
+                  {isOpen && <span className="animate-in fade-in duration-500 whitespace-nowrap">{isAdmin ? t.insuranceAdmin : t.insurance}</span>}
+                </button>
+              )}
 
               {isAdmin && (
                 <button
