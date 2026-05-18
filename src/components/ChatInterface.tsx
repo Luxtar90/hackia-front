@@ -148,6 +148,7 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
     addMessage,
     updateSessionTitle,
     customerId,
+    patientPageId,
     setConversationId,
     setSelectedHospital,
     setMapCenter,
@@ -218,7 +219,7 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
 
       const response = await chatApi.sendMessage(
         currentInput,
-        customerId || undefined,
+        patientPageId || customerId || undefined,
         conversationForApi,
         geo ? { latitude: geo.latitude, longitude: geo.longitude } : undefined,
         (event) => setProgressSteps((prev) => [...prev, event]),
@@ -527,7 +528,12 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
       {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth custom-scrollbar">
         <div className="max-w-3xl mx-auto w-full space-y-8">
-          {messages.map((m) => {
+          {!currentSession.loaded && !currentSessionId.startsWith('new-') ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400 dark:text-slate-500">
+              <Loader2 className="w-7 h-7 animate-spin" />
+              <span className="text-sm">{language === 'Español' ? 'Cargando historial...' : 'Loading history...'}</span>
+            </div>
+          ) : messages.map((m) => {
             const userName = user.name.split(' ')[0];
             const isInitialGreeting = m.role === 'assistant' && 
               (m.content.includes('soy tu asistente de salud') || m.content.includes('I am your health assistant'));
@@ -749,7 +755,7 @@ export function ChatInterface({ isSidebarOpen, setIsSidebarOpen, onOpenHospitals
               </div>
             );
           })}
-          {isTyping && (
+          {isTyping && (currentSession.loaded || currentSessionId.startsWith('new-')) && (
             <div className="flex justify-start animate-in fade-in duration-300">
               <div className="flex gap-4 max-w-[90%] md:max-w-[min(100%,42rem)]">
                 <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm shrink-0">

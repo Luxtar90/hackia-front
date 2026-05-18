@@ -103,6 +103,7 @@ interface AppState {
   isAuthenticated: boolean;
   accessToken: string | null;
   customerId: string | null;
+  patientPageId: string | null;
   userId: string | null;
   user: {
     name: string;
@@ -143,6 +144,7 @@ export const useAppStore = create<AppState>()(
       isAuthenticated: false,
       accessToken: null,
       customerId: null,
+      patientPageId: null,
       userId: null,
       user: {
         name: '',
@@ -152,11 +154,11 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchSessions: async () => {
-        const { customerId, isAuthenticated } = get();
-        if (!isAuthenticated || !customerId) return;
+        const { patientPageId, isAuthenticated } = get();
+        if (!isAuthenticated || !patientPageId) return;
 
         try {
-          const response = await chatApi.getHistory(customerId);
+          const response = await chatApi.getHistory(patientPageId);
           if (response.success && response.data.sessions) {
             // Mantenemos los mensajes de las sesiones que ya estaban cargadas localmente
             const currentSessionsMap = new Map(get().sessions.map(s => [s.id, s]));
@@ -191,6 +193,7 @@ export const useAppStore = create<AppState>()(
           isAuthenticated: true,
           accessToken: token,
           customerId: user.userId || user.patientId || user.id,
+          patientPageId: user.patientId || user.id || null,
           userId: user.id || null,
           user: {
             name: user.nombre || user.name || '',
@@ -209,6 +212,7 @@ export const useAppStore = create<AppState>()(
           isAuthenticated: false,
           accessToken: null,
           customerId: null,
+          patientPageId: null,
           userId: null,
           currentSessionId: null,
           selectedHospital: null,
@@ -231,14 +235,14 @@ export const useAppStore = create<AppState>()(
 
       setCurrentSession: async (id) => {
         set({ currentSessionId: id });
-        
+
         const state = get();
-        const customerId = state.customerId;
+        const patientPageId = state.patientPageId;
         const session = state.sessions.find(s => s.id === id);
 
-        if (session && !session.loaded && customerId && !id.startsWith('new-')) {
+        if (session && !session.loaded && patientPageId && !id.startsWith('new-')) {
           try {
-            const response = await chatApi.getHistory(customerId, id);
+            const response = await chatApi.getHistory(patientPageId, id);
             if (response.success && response.data.messages) {
               const mappedMessages = response.data.messages.map((m: any) => ({
                 id: m.id,
@@ -359,6 +363,7 @@ export const useAppStore = create<AppState>()(
         isAuthenticated: state.isAuthenticated,
         accessToken: state.accessToken,
         customerId: state.customerId,
+        patientPageId: state.patientPageId,
         userId: state.userId,
         user: state.user,
       }),
