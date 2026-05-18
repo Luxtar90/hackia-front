@@ -28,7 +28,7 @@ function hashForView(view: AppView): string {
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { isDarkMode, createNewSession, isAuthenticated, fetchSessions, setCurrentSession, user } = useAppStore();
-  const isAdmin = user.role === 'admin';
+  // const isAdmin = user.role === 'admin';
 
   const [activeView, setActiveView] = useState<AppView>(() => {
     if (typeof window === 'undefined') return 'chat';
