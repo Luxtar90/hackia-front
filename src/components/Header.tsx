@@ -7,7 +7,9 @@ export function Header() {
         <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
           <Activity className="text-white w-5 h-5" />
         </div>
-        <span className="font-bold text-slate-800 text-lg tracking-tight">Estimador<span className="text-teal-600">Agéntico</span></span>
+        <span className="font-bold text-slate-800 text-lg tracking-tight">
+          Well<span className="text-teal-600">Way</span>
+        </span>
       </div>
       <div className="flex items-center gap-4">
         <button className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors">

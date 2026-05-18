@@ -12,6 +12,11 @@ function parseJwt(token: string): Record<string, any> {
   }
 }
 
+/** Misma clave que `GET /api/chat/history/:customerId` (paciente Notion o fallback que usa el backend). */
+function chatHistoryCustomerKey(state: { patientPageId: string | null; customerId: string | null }): string | null {
+  return state.patientPageId ?? state.customerId ?? null;
+}
+
 export interface Hospital {
   name: string;
   /** Copago estimado del plan; ausente si el centro está fuera de red (OSM u otros). */
@@ -154,31 +159,45 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchSessions: async () => {
-        const { patientPageId, isAuthenticated } = get();
-        if (!isAuthenticated || !patientPageId) return;
+        const state = get();
+        if (!state.isAuthenticated) return;
+
+        const historyKey = chatHistoryCustomerKey(state);
+        if (!historyKey) {
+          set({ sessions: [], currentSessionId: null });
+          return;
+        }
 
         try {
-          const response = await chatApi.getHistory(patientPageId);
-          if (response.success && response.data.sessions) {
-            // Mantenemos los mensajes de las sesiones que ya estaban cargadas localmente
-            const currentSessionsMap = new Map(get().sessions.map(s => [s.id, s]));
-            
+          const response = await chatApi.getHistory(historyKey);
+          if (response.success && Array.isArray(response.data.sessions)) {
+            const currentSessionsMap = new Map(get().sessions.map((s) => [s.id, s]));
+
             const remoteSessions = response.data.sessions.map((s: any) => {
               const existing = currentSessionsMap.get(s.id);
               return {
                 id: s.id,
                 title: s.title,
-                messages: existing?.messages || [],
+                messages: existing?.messages ?? [],
                 lastUpdated: s.lastUpdated,
                 conversationId: s.id,
-                loaded: existing?.loaded || false
+                loaded: existing?.loaded ?? false,
               };
             });
-            
-            set({ sessions: remoteSessions });
+
+            const remoteIds = new Set(remoteSessions.map((s: { id: string }) => s.id));
+            const prevCurrent = get().currentSessionId;
+            const nextCurrent =
+              prevCurrent && remoteIds.has(prevCurrent) ? prevCurrent : (remoteSessions[0]?.id ?? null);
+
+            set({ sessions: remoteSessions, currentSessionId: nextCurrent });
+          } else {
+            set({ sessions: [], currentSessionId: null });
           }
         } catch (error) {
           console.error('Error fetching sessions from Notion:', error);
+          // Evitar lista fantasma del navegador si prod/dev cambió o la API falló.
+          set({ sessions: [], currentSessionId: null });
         }
       },
 
@@ -195,6 +214,7 @@ export const useAppStore = create<AppState>()(
           customerId: user.userId || user.patientId || user.id,
           patientPageId: user.patientId || user.id || null,
           userId: user.id || null,
+          sessions: [],
           user: {
             name: user.nombre || user.name || '',
             email: user.email || '',
@@ -237,12 +257,12 @@ export const useAppStore = create<AppState>()(
         set({ currentSessionId: id });
 
         const state = get();
-        const patientPageId = state.patientPageId;
-        const session = state.sessions.find(s => s.id === id);
+        const historyKey = chatHistoryCustomerKey(state);
+        const session = state.sessions.find((s) => s.id === id);
 
-        if (session && !session.loaded && patientPageId && !id.startsWith('new-')) {
+        if (session && !session.loaded && historyKey && !id.startsWith('new-')) {
           try {
-            const response = await chatApi.getHistory(patientPageId, id);
+            const response = await chatApi.getHistory(historyKey, id);
             if (response.success && response.data.messages) {
               const mappedMessages = response.data.messages.map((m: any) => ({
                 id: m.id,
@@ -312,15 +332,16 @@ export const useAppStore = create<AppState>()(
       })),
 
       deleteSession: async (id) => {
-        const { customerId } = get();
-        if (customerId && !id.startsWith('new-')) {
+        const state = get();
+        const historyKey = chatHistoryCustomerKey(state);
+        if (historyKey && !id.startsWith('new-')) {
           try {
-            await chatApi.deleteSession(customerId, id);
+            await chatApi.deleteSession(historyKey, id);
           } catch (error) {
             console.error('Error deleting session from Notion:', error);
           }
         }
-        
+
         set((state) => ({
           sessions: state.sessions.filter((s) => s.id !== id),
           currentSessionId: state.currentSessionId === id ? null : state.currentSessionId
@@ -352,9 +373,12 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'estimador-storage',
+      merge: (persistedState, currentState) => {
+        if (!persistedState || typeof persistedState !== 'object') return currentState;
+        const { sessions: _discarded, ...rest } = persistedState as Partial<AppState>;
+        return { ...currentState, ...rest };
+      },
       partialize: (state) => ({
-        // Hybrid: Persistimos sesiones para carga instantánea, pero se sincronizan con Notion
-        sessions: state.sessions,
         currentSessionId: state.currentSessionId,
         /** Evita modo catálogo tras F5: sin coords persistidas el primer fetch iba sin GPS → solo maestro Notion (“todos en red”). */
         userLocation: state.userLocation,
