@@ -26,6 +26,7 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
 
   const t = translations[language].settings;
   const common = translations[language].common;
+  const sidebarBrand = translations[language].sidebar;
 
   const handleUpdateProfile = async () => {
     try {
@@ -166,7 +167,9 @@ export function SettingsView({ isSidebarOpen, setIsSidebarOpen, onOpenProfile }:
               {t.deleteAccount}
             </button>
             <p className="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-widest">
-              Estimador Agéntico v1.0.4
+              {sidebarBrand.appTitle}
+              <span className="text-teal-600">{sidebarBrand.appSubtitle}</span>
+              {' · v1.0.4'}
             </p>
           </div>
         </div>

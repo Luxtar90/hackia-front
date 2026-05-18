@@ -206,8 +206,8 @@ export const translations = {
       successCreated: 'Account created successfully! You can now log in.',
     },
     sidebar: {
-      appTitle: 'Agentic',
-      appSubtitle: 'Estimator',
+      appTitle: 'Well',
+      appSubtitle: 'Way',
       mainMenu: 'Main',
       newChat: 'New Consultation',
       hospitals: 'Hospitals',
